@@ -1,5 +1,6 @@
 #pragma once
 
+#include "pconfig.hpp"
 #include <bitset>
 
 namespace pcore {

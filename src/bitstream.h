@@ -1,5 +1,6 @@
 #pragma once
 
+#include "pconfig.hpp"
 #include "bspan.h"
 
 namespace pcore {

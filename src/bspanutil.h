@@ -1,12 +1,12 @@
 #pragma once
 
+#include "pconfig.hpp"
 
 //	Herein you will find various objects and functions which are
 //	useful while scanning, tokenizing, parsing streams of text.
 
 #include "bspan.h"
 #include "charset.h"
-//#include "maths.h"
 
 
 namespace pcore

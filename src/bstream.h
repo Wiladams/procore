@@ -10,9 +10,6 @@
 // This pattern is seen all the time when reading binary data from
 // files, or network buffers.  It's used for image loading, protocol
 // parsing, interop between interfaces, etc.
-// 
-// The functions here are done as straight C instead of C++ classes
-// to provide simple and fast implementation without any dependencies.
 //
 // The functions here do minimal boundary checking.  They are meant
 // to be fairly low level, so they will be safe and not run over
@@ -27,6 +24,7 @@
 // safe to use in a lot of places without incurring additional cost.
 //
 
+#include "pconfig.hpp"
 #include "bspan.h"
 
 

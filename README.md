@@ -1,11 +1,12 @@
 # procore
-Programming Core - Data Structures and routines that get used over and over
+Programming Core - Data Structures and routines that get used over and over again
 
 
 The files here have been culled from various projects such as ndt, waavstudio, vdj, srt, and whatnot.  The routines and structures
-continuously evolve, but they seem the be relatively stable.
+continuously evolve, but they seem the be relatively stable.  These routines skew towards handling memory for serialization and 
+tokenization.
 
-Everything is in a header, so they're pretty easy to integrate into other things.  There's no 'library' and thus no 'build' to worry about.  Just grab what you need and copy it into your project, and you're all set.
+Everything is typically in a header, so they're pretty easy to integrate into other things.  There's no 'library' and thus no 'build' to worry about.  Just grab what you need and copy it into your project, and you're all set.
 
 Namespace:  On initial checking, everything is in the 'waavs' namespace.  This will change to the 'pcore' namespace so it's more generic.
 
