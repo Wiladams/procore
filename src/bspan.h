@@ -4,6 +4,23 @@
 #include "pconfig.hpp"
 #include "binops.h"
 
+//
+// A core type for representing a contiguous sequence of bytes
+// As of C++ 20, there is std::span, but it is not yet widely supported
+// 
+// The ByteSpan is used in everything from networking
+// to graphics bitmaps to audio buffers.
+// Having a universal representation of a chunk of data
+// allows for easy interoperability between different
+// subsystems.  
+// 
+// It also allows us to eliminate disparate implementations that
+// are used for the same purpose.
+
+// Implementation note: The ByteSpan is a 'view' of a chunk of data.
+// We are using a begin/end pointer pair to represent
+// the view.
+
 #include <cstdint>
 #include <cstring>
 #include <iterator>	// for std::data(), std::size()
@@ -11,18 +28,7 @@
 namespace pcore {
 
 
-	//
-	// A core type for representing a contiguous sequence of bytes
-	// As of C++ 20, there is std::span, but it is not yet widely supported
-	// 
-	// The ByteSpan is used in everything from networking
-	// to graphics bitmaps to audio buffers.
-	// Having a universal representation of a chunk of data
-	// allows for easy interoperability between different
-	// subsystems.  
-	// 
-	// It also allows us to eliminate disparate implementations that
-	// are used for the same purpose.
+
 
 	struct ByteSpan
 	{

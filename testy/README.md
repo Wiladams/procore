@@ -1,7 +1,8 @@
 All these test cases are meant to be simple self contained executables
 Compile with:
-  cl -I ..\src fileaname.cpp
-
+  cl /await:strict -I ..\src fileaname.cpp
+    /await - turn on co-routines
+    /std:c++20
 
 That's it.
 

@@ -8,6 +8,7 @@ using namespace pcore;
 
 void test_trim()
 {
+    printf("==== test_trim ====\n");
     ByteSpan span1("  Hello, world!  ");
     ByteSpan span2 = chunk_trim(span1, wspChars);
 
@@ -17,6 +18,7 @@ void test_trim()
 
 void test_double()
 {
+    printf("==== test_double ====\n");
     ByteSpan spanNum1("123.456");
     double num1 = toNumber(spanNum1);
 

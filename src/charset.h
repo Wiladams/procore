@@ -1,11 +1,6 @@
 #pragma once
 
-#include "pconfig.hpp"
-#include <bitset>
-
-namespace pcore {
-
-	// Represent a set of characters as a bitset
+// Represent a set of characters as a bitset
 //
 // Typical usage:
 //   charset whitespaceChars("\t\n\f\r ");
@@ -24,6 +19,13 @@ namespace pcore {
 //  and it will no doubt be tied to particular version of the compiler.  Use that
 //  if it suits your needs.  Meanwhile, at least you can see how such a thing can
 //  be implemented.
+
+
+#include "pconfig.hpp"
+#include <bitset>
+
+namespace pcore {
+
 	struct charset {
 		std::bitset<256> bits;
 
