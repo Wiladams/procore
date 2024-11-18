@@ -1,7 +1,7 @@
 #pragma once
 
 #include "pconfig.hpp"
-#include "bspan.h"
+#include "bytespan.h"
 
 #include <cstdio>
 
