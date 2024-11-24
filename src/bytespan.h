@@ -2,35 +2,52 @@
 
     #include "bspan.h"
 
+namespace pcore {
     struct ByteSpan
 	{
-		const unsigned char* fStart{ nullptr };
-		const unsigned char* fEnd{ nullptr };
+	private:
+		bspan fSpan{};
 
+public:
 		// Constructors
-		ByteSpan() : fStart(nullptr), fEnd(nullptr) {}
-		ByteSpan(const unsigned char* start, const unsigned char* end) : fStart(start), fEnd(end) {}
-		ByteSpan(const char* cstr) : fStart((const unsigned char*)cstr), fEnd((const unsigned char*)cstr + strlen(cstr)) {}
-		explicit ByteSpan(const void* data, size_t sz) :fStart((const unsigned char*)data), fEnd((const unsigned char*)data + sz) {}
+		ByteSpan() = default;
+		ByteSpan(const unsigned char* astart, const unsigned char* aend)
+		{
+			bspan_init(&fSpan, astart, aend);
+		}
+		ByteSpan(const char* cstr)
+		{
+			bspan_init_from_cstr(&fSpan, cstr);
+		}
+		explicit ByteSpan(const void* data, size_t sz) 
+		{
+			bspan_init_from_data(&fSpan, data, sz);
+		}
+
+		// setting up for a range-based for loop
+		const unsigned char* data() const noexcept { return (unsigned char*)bspan_data(&fSpan); }
+		const unsigned char* begin() const noexcept { return bspan_begin(&fSpan); }
+		const unsigned char* end() const noexcept { return bspan_end(&fSpan); }
+		size_t size()  const noexcept { return bspan_size(&fSpan); }
+		const bool empty() const noexcept { return bspan_is_empty(&fSpan); }
 
 
 
 		// Type conversions
-		explicit operator bool() const { return (fEnd - fStart) > 0; };
+		// the type 'bool' is used for convenience in loop termination
+		explicit operator bool() const { return bspan_is_valid(&fSpan); };
 
 
 		// Array access
-		unsigned char& operator[](size_t i) { return ((unsigned char*)fStart)[i]; }
-		const unsigned char& operator[](size_t i) const { return ((unsigned char*)fStart)[i]; }
+		unsigned char& operator[](size_t i) { return ((unsigned char*)begin())[i]; }
+		const unsigned char& operator[](size_t i) const { return ((unsigned char*)begin())[i]; }
 
 		// get current value from fStart, like a 'peek' operation
-		unsigned char& operator*() { static unsigned char zero = 0;  if (fStart < fEnd) return *(unsigned char*)fStart; return  zero; }
-		const uint8_t& operator*() const { static unsigned char zero = 0;  if (fStart < fEnd) return *(unsigned char*)fStart; return  zero; }
+		unsigned char& operator*() { static unsigned char zero = 0;  if (begin() < end()) return *(unsigned char*)begin(); return  zero; }
+		const uint8_t& operator*() const { static unsigned char zero = 0;  if (fSpan.fStart < fSpan.fEnd) return *(unsigned char*)fSpan.fStart; return  zero; }
 
 		ByteSpan& operator+= (size_t n) {
-			if (n > size())
-				n = size();
-			fStart += n;
+			bspan_advance(&fSpan, n);
 
 			return *this;
 		}
@@ -39,17 +56,104 @@
 		ByteSpan& operator++() { return operator+=(1); }			// prefix notation ++y
 		ByteSpan& operator++(int i) { return operator+=(1); }       // postfix notation y++
 
+		bool operator==(const ByteSpan& b) noexcept
+		{
+			return (bspan_compare_span(&fSpan, &b.fSpan) == 0);
+		}
+
+		bool operator==(const char* b) noexcept
+		{
+			bspan cspan;
+			bspan_init_from_cstr(&cspan, b);
+			return (bspan_compare_span(&fSpan, &cspan) == 0);
+		}
+
+		bool operator!=(const ByteSpan& b) noexcept
+		{
+			if (size() != b.size())
+				return true;
+
+			return !this->operator==(b);
+		}
+
+		bool operator<(const ByteSpan& b) noexcept
+		{
+			return bspan_compare_span(&fSpan, &b.fSpan) < 0;
+		}
+
+		bool operator>(const ByteSpan& b) noexcept
+		{
+			return bspan_compare_span(&fSpan, &b.fSpan) > 0;
+		}
+
+		bool operator<=(const ByteSpan& b) noexcept
+		{
+			return bspan_compare_span(&fSpan, &b.fSpan) <= 0;
+		}
+
+		bool operator>=(const ByteSpan& b) noexcept
+		{
+			return bspan_compare_span(&fSpan, &b.fSpan) >= 0;
+		}
 
 
-		// setting up for a range-based for loop
-		const unsigned char* data() const noexcept { return (unsigned char*)fStart; }
-		const unsigned char* begin() const noexcept { return fStart; }
-		const unsigned char* end() const noexcept { return fEnd; }
-		size_t size()  const noexcept { return fEnd - fStart; }
-		const bool empty() const noexcept { return fStart == fEnd; }
-
-		void setAll(unsigned char c) noexcept { memset((uint8_t*)fStart, c, size()); }
+		void setAll(unsigned char c) noexcept { bspan_set_all(&fSpan, c); }
 		
+		size_t copyFrom(const ByteSpan &b)
+		{
+			return bspan_copy_from_span(&fSpan, &b.fSpan);
+		}
+
+		size_t copyFrom(const char *b)
+		{
+			bspan cspan;
+			bspan_init_from_cstr(&cspan, b);
+			return bspan_copy_from_span(&fSpan, &cspan);
+		}
+	};
+
+
+}
+                       
+// Implementation of hash function for ByteSpan
+// so it can be used in 'map' collections
+namespace std {
+	template<>
+	struct hash<pcore::ByteSpan> {
+		size_t operator()(const pcore::ByteSpan& span) const {
+			uint32_t hash = 0;
+			
+			for (const unsigned char* p = span.fStart; p != span.fEnd; ++p) {
+				hash = hash * 31 + *p;
+			}
+			return hash;
+		}
+	};
+}
+
+/*
+	static inline int compare(const ByteSpan& a, const ByteSpan& b) noexcept
+	{
+		size_t maxBytes = a.size() < b.size() ? a.size() : b.size();
+		return memcmp(a.fStart, b.fStart, maxBytes);
+	}
+
+	static inline int comparen(const ByteSpan& a, const ByteSpan& b, int n) noexcept
+	{
+		size_t maxBytes = a.size() < b.size() ? a.size() : b.size();
+		if (maxBytes > n)
+			maxBytes = n;
+		return memcmp(a.fStart, b.fStart, maxBytes);
+	}
+
+	static inline int comparen_cstr(const ByteSpan& a, const char* b, int n) noexcept
+	{
+		size_t maxBytes = a.size() < n ? a.size() : n;
+		return memcmp(a.fStart, b, maxBytes);
+	}
+*/
+
+		/*
 		//
 		// Note:  For the various 'as_xxx' routines, there is no size
 		// error checking.  It is assumed that whatever is calling the
@@ -127,163 +231,4 @@
 			uint64_t r = *((uint64_t*)fStart);
 			return bswap64(r);
 		}
-
-	};
-
-static inline size_t copy(ByteSpan& a, const ByteSpan& b) noexcept;
-	static inline size_t copy_to_cstr(char* str, size_t len, const ByteSpan& a) noexcept;
-	static inline int compare(const ByteSpan& a, const ByteSpan& b) noexcept;
-	static inline int comparen(const ByteSpan& a, const ByteSpan& b, int n) noexcept;
-	static inline int comparen_cstr(const ByteSpan& a, const char* b, int n) noexcept;
-	static inline bool chunk_is_equal(const ByteSpan& a, const ByteSpan& b) noexcept;
-	static inline bool chunk_is_equal_cstr(const ByteSpan& a, const char* s) noexcept;
-
-	// Some utility functions for common operations
-
-	static inline void chunk_truncate(ByteSpan& dc) noexcept;
-	//static inline ByteSpan& chunk_skip(ByteSpan& dc, ptrdiff_t n) noexcept;
-	static inline ByteSpan& chunk_skip_to_end(ByteSpan& dc) noexcept;
-
-
-	//
-	// operators for comparison
-	// operator!=;
-	// operator<=;
-	// operator>=;
-	static inline bool operator==(const ByteSpan& a, const ByteSpan& b) noexcept;
-	static inline bool operator==(const ByteSpan& a, const char* b) noexcept;
-	static inline bool operator< (const ByteSpan& a, const ByteSpan& b) noexcept;
-	static inline bool operator> (const ByteSpan& a, const ByteSpan& b) noexcept;
-	static inline bool operator!=(const ByteSpan& a, const ByteSpan& b) noexcept;
-	static inline bool operator<=(const ByteSpan& a, const ByteSpan& b) noexcept;
-	static inline bool operator>=(const ByteSpan& a, const ByteSpan& b) noexcept;
-
-
-	// ByteSpan routines
-	static inline ByteSpan chunk_from_cstr(const char* data) noexcept { return ByteSpan{ (uint8_t*)data, (uint8_t*)data + strlen(data) }; }
-
-
-	static inline size_t chunk_size(const ByteSpan& a) noexcept { return a.size(); }
-	static inline bool chunk_empty(const ByteSpan& dc)  noexcept { return dc.fEnd == dc.fStart; }
-	static inline size_t copy(ByteSpan& a, const ByteSpan& b) noexcept
-	{
-		size_t maxBytes = a.size() < b.size() ? a.size() : b.size();
-		memcpy((uint8_t*)a.fStart, b.fStart, maxBytes);
-		return maxBytes;
-	}
-
-	static inline int compare(const ByteSpan& a, const ByteSpan& b) noexcept
-	{
-		size_t maxBytes = a.size() < b.size() ? a.size() : b.size();
-		return memcmp(a.fStart, b.fStart, maxBytes);
-	}
-
-	static inline int comparen(const ByteSpan& a, const ByteSpan& b, int n) noexcept
-	{
-		size_t maxBytes = a.size() < b.size() ? a.size() : b.size();
-		if (maxBytes > n)
-			maxBytes = n;
-		return memcmp(a.fStart, b.fStart, maxBytes);
-	}
-
-	static inline int comparen_cstr(const ByteSpan& a, const char* b, int n) noexcept
-	{
-		size_t maxBytes = a.size() < n ? a.size() : n;
-		return memcmp(a.fStart, b, maxBytes);
-	}
-
-	static inline bool chunk_is_equal(const ByteSpan& a, const ByteSpan& b) noexcept
-	{
-		if (a.size() != b.size())
-			return false;
-		return memcmp(a.fStart, b.fStart, a.size()) == 0;
-	}
-
-	static inline bool chunk_is_equal_cstr(const ByteSpan& a, const char* cstr) noexcept
-	{
-		size_t len = strlen(cstr);
-		if (a.size() != len)
-			return false;
-		return memcmp(a.fStart, cstr, len) == 0;
-	}
-
-
-	static inline void chunk_truncate(ByteSpan& dc) noexcept
-	{
-		dc.fEnd = dc.fStart;
-	}
-
-	static inline ByteSpan& chunk_skip(ByteSpan& dc, size_t n) noexcept
-	{
-		if (n > dc.size())
-			n = dc.size();
-		dc.fStart += n;
-
-		return dc;
-	}
-
-	static inline ByteSpan& chunk_skip_to_end(ByteSpan& dc) noexcept { dc.fStart = dc.fEnd; }
-
-
-
-	static inline bool operator==(const ByteSpan& a, const ByteSpan& b) noexcept
-	{
-		if (a.size() != b.size())
-			return false;
-		return memcmp(a.fStart, b.fStart, a.size()) == 0;
-	}
-
-	static inline bool operator==(const ByteSpan& a, const char* b) noexcept
-	{
-		size_t len = strlen(b);
-		if (a.size() != len)
-			return false;
-		return memcmp(a.fStart, b, len) == 0;
-	}
-
-	static inline bool operator!=(const ByteSpan& a, const ByteSpan& b) noexcept
-	{
-		if (a.size() != b.size())
-			return true;
-		return memcmp(a.fStart, b.fStart, a.size()) != 0;
-	}
-
-	static inline bool operator<(const ByteSpan& a, const ByteSpan& b) noexcept
-	{
-		size_t maxBytes = a.size() < b.size() ? a.size() : b.size();
-		return memcmp(a.fStart, b.fStart, maxBytes) < 0;
-	}
-
-	static inline bool operator>(const ByteSpan& a, const ByteSpan& b) noexcept
-	{
-		size_t maxBytes = a.size() < b.size() ? a.size() : b.size();
-		return memcmp(a.fStart, b.fStart, maxBytes) > 0;
-	}
-
-	static inline bool operator<=(const ByteSpan& a, const ByteSpan& b) noexcept
-	{
-		size_t maxBytes = a.size() < b.size() ? a.size() : b.size();
-		return memcmp(a.fStart, b.fStart, maxBytes) <= 0;
-	}
-
-	static inline bool operator>=(const ByteSpan& a, const ByteSpan& b) noexcept
-	{
-		size_t maxBytes = a.size() < b.size() ? a.size() : b.size();
-		return memcmp(a.fStart, b.fStart, maxBytes) >= 0;
-	}
-    
-// Implementation of hash function for ByteSpan
-// so it can be used in 'map' collections
-namespace std {
-	template<>
-	struct hash<pcore::ByteSpan> {
-		size_t operator()(const pcore::ByteSpan& span) const {
-			uint32_t hash = 0;
-			
-			for (const unsigned char* p = span.fStart; p != span.fEnd; ++p) {
-				hash = hash * 31 + *p;
-			}
-			return hash;
-		}
-	};
-}
+*/

@@ -1,32 +1,19 @@
-#ifndef BSPAN_H
-#define BSPAN_H
+#ifndef BSPAN_H_INCLUDED
+#define BSPAN_H_INCLUDED
 
-//
-// A core type for representing a contiguous sequence of bytes
-// As of C++ 20, there is std::span, but it is not yet widely supported
-// 
-// The ByteSpan is used in everything from networking
-// to graphics bitmaps to audio buffers.
-// Having a universal representation of a chunk of data
-// allows for easy interoperability between different
-// subsystems.  
-// 
-// It also allows us to eliminate disparate implementations that
-// are used for the same purpose.
-
-// Implementation note: The ByteSpan is a 'view' of a chunk of data.
-// We are using a begin/end pointer pair to represent
-// the view.
 
 #include <cstdint>
+#include <cstddef>		// nullptr_t, ptrdiff_t, size_t
 #include <cstring>
-#include <iterator>	// for std::data(), std::size()
-
-
-#include "pconfig.hpp"
 
 
 
+// C++ compatibility, ensure we use C naming instead of C++ name 
+// mangling for these function names
+//
+#ifdef __cplusplus
+extern "C" {
+#endif
 	// bspan
 	//
 	// A structure that respresents a set of contiguous bytes
@@ -50,48 +37,48 @@
 	};
 
 	typedef struct bspan_t bspan;
-	typedef struct bspan_t* bspan_p;
+	//typedef bspan* bspan_p;
 
-// C++ compatibility, ensure we use C naming instead of C++ name 
-// mangling for these function names
-//
-#ifdef __cplusplus
-extern "C" {
-#endif
+
 	// Forward function declarations
+
 	// bspan_reset()
 	// Reset the bspan to its initial empty state
 	// same as: bspan_init(bs, nullptr, nullptr)
-	static void bspan_reset(bspan_p bs) noexcept;
+	static void bspan_reset(bspan * bs) noexcept;
 
 	// bspan_init()
 	// Initialize the bspan to point to a contiguous set of bytes with 
 	// 'ptr1' and 'ptr2' as its endpoints.  Order does not matter.
-	static int bspan_init(bspan_p bs, const void *pt1, const void *pt2) noexcept;
-	static int bspan_init_from_data(bspan_p bs, const void *data, size_t sz) noexcept;
-	static int bspan_init_from_cstr(bspan_p bs, const char* cstr) noexcept;
-	
+	static int bspan_init(bspan * bs, const void *pt1, const void *pt2) noexcept;
+	static int bspan_init_from_data(bspan * bs, const void *data, size_t sz) noexcept;
+	static int bspan_init_from_cstr(bspan * bs, const char* cstr) noexcept;
+	static int bspan_set_all(bspan *bs, const unsigned char c) noexcept;
+	static size_t bspan_copy_from_span(bspan * a, const bspan * b) noexcept;
+
 	// bspan_size()
 	// Return the number of contiguous bytes the span represents
 	// Design: using ptrdiff_t instead of size_t, makes math with the return value
 	// easier.  The size is guaranteed to be zero or greater
-	static ptrdiff_t bspan_size(bspan_p) noexcept;
-	static bool bspan_is_empty(bspan_p) noexcept;
+	static size_t bspan_size(const bspan *) noexcept;
+	static bool bspan_is_empty(const bspan *) noexcept;
+	static bool bspan_is_valid(const bspan *) noexcept;
 
 	// setting up for a range-based for loop
-	static const unsigned char* bspan_data(const bspan_p) noexcept;
-	static const unsigned char* bspan_begin(const bspan_p) noexcept;
-	static const unsigned char* bspan_end(const bspan_p) noexcept;
+	static const unsigned char* bspan_data(const bspan *) noexcept;
+	static const unsigned char* bspan_begin(const bspan *) noexcept;
+	static const unsigned char* bspan_end(const bspan *) noexcept;
+	static unsigned char bspan_front(const bspan *) noexcept;
 
 	// Comparison functions
-	static bool bspan_begins_with_span(const bspan_p a, const bspan_p b) noexcept;
-	static int bspan_compare_span(const bspan_p a, const bspan_p b) noexcept;
+	static bool bspan_begins_with_span(const bspan * a, const bspan * b) noexcept;
+	static int bspan_compare_span(const bspan * a, const bspan * b) noexcept;
 
 
 	// Common functions
 	// bspan_reset()
 	// Set the span to an unused state
-	static void bspan_reset(bspan_p bs) noexcept
+	static void bspan_reset(bspan * bs) noexcept
 	{
 		bs->fStart = nullptr;
 		bs->fEnd = nullptr;
@@ -101,7 +88,7 @@ extern "C" {
 	// The span can be initialized with two pointers with their values
 	// in any order.  The start will be the pointer with the lowest value,
 	// and the end will be the pointer with the highest value.
-	static int bspan_init(bspan_p bs, const void *ptr1, const void *ptr2) noexcept
+	static int bspan_init(bspan * bs, const void *ptr1, const void *ptr2) noexcept
 	{
 		if (ptr1<ptr2){
 			bs->fStart = (unsigned char *)ptr1;
@@ -116,33 +103,60 @@ extern "C" {
 
 	// bspan_init_from_cstr
 	// Initilize a span from a 'C' sring (classic null terminated)
-	static int bspan_init_from_cstr(bspan_p bs, const char* cstr) noexcept 
+	static int bspan_init_from_cstr(bspan * bs, const char* cstr) noexcept 
 	{ 
 		return bspan_init(bs, cstr, cstr+strlen(cstr));
 	}
 
 	// bspan_init_from_data()
 	// Initialize a span from any pointer/size provided
-	static int bspan_init_from_data(bspan_p bs, const void *data, size_t sz) noexcept
+	static int bspan_init_from_data(bspan * bs, const void *data, size_t sz) noexcept
 	{
 		unsigned char *dataEnd = (unsigned char *)data + sz;
 		return bspan_init(bs, data, dataEnd);
 	}
 
-	static ptrdiff_t bspan_size(const bspan_p bs) noexcept
+	// bspan_set_all()
+	// set all bytes in the span to the specified value
+	static int bspan_set_all(bspan *bs, const unsigned char c) noexcept
 	{
+
+		unsigned char *startAt = (unsigned char *)bs->fStart;
+		const unsigned char *endAt = bs->fEnd;
+
+		while (startAt < endAt)
+		{
+			*startAt = c;
+			startAt++;
+		}
+	}
+
+	// bspan_size()
+	// Return the size of the bspan.  That is, the number of bytes
+	// covered by the span.
+	static size_t bspan_size(const bspan * bs) noexcept
+	{
+		if (nullptr == bs)
+			return 0;
+
 		return bs->fEnd - bs->fStart;
 	}
 
-	static bool bspan_is_empty(const bspan_p bs) noexcept {return bspan_size(bs)==0;}
+	//bspan_is_empty()
+	// Returns whether the bspan has a size of zero (empty)
+	// This is purely a matter of convenience, since you can just
+	// check the size directly
+	static bool bspan_is_empty(const bspan * bs) noexcept {return bspan_size(bs)==0;}
+	static bool bspan_is_valid(const bspan * bs) noexcept {return ((bs != nullptr) && (bs->fStart<bs->fEnd));}
 
 	// For ranging
-	static const unsigned char* bspan_data(const bspan_p bs) noexcept {return bs->fStart;}
-	static const unsigned char* bspan_begin(const bspan_p bs) noexcept {return bs->fStart;}
-	static const unsigned char* bspan_end(const bspan_p bs) noexcept { return bs->fEnd; }
-
+	static const unsigned char* bspan_data(const bspan * bs) noexcept {return bs->fStart;}
+	static const unsigned char* bspan_begin(const bspan * bs) noexcept {return bs->fStart;}
+	static const unsigned char* bspan_end(const bspan * bs) noexcept { return bs->fEnd; }
+	static unsigned char bspan_font(const bspan *bs) noexcept {if ((bs->fStart != nullptr) && (bs->fStart < bs->fEnd)) return *bs->fStart; return 0; }
+	
 	// Byte Comparison operations
-	static int bspan_compare_span(const bspan_p a, const bspan_p b) noexcept
+	static int bspan_compare_span(const bspan * a, const bspan * b) noexcept
 	{
 		const unsigned char *cs = bspan_begin(a);
 		const unsigned char *ct = bspan_begin(b);
@@ -179,7 +193,7 @@ extern "C" {
 	// It is a byte comparison, assuming the first operand is at 
 	// least as big as the second, and that every byte from the second
 	// operand is located in sequence in the first operand.
-	static bool bspan_begins_with_span(const bspan_p a, const bspan_p b) noexcept
+	static bool bspan_begins_with_span(const bspan * a, const bspan * b) noexcept
 	{
 		ptrdiff_t len = bspan_size(b);
 		
@@ -197,8 +211,10 @@ extern "C" {
   		return true;
 	}
 
-// Create a bytespan that is a subspan of another bytespan
-	static  int bspan_subspan(const bspan_p a, const size_t startAt, const size_t sz, bspan_p b) noexcept
+	// bspan_subspan()
+	//
+	// Create a bytespan that is a subspan of another bytespan
+	static  int bspan_subspan(const bspan * a, const size_t startAt, const size_t sz, bspan * b) noexcept
 	{
 		const unsigned char* astart = bspan_begin(a);
 		const unsigned char* end = bspan_end(a);
@@ -218,21 +234,41 @@ extern "C" {
 		return bspan_init(b, astart, end );
 	}
 
-	static int bspan_advance(bspan_p a, size_t sz, bspan_p b) noexcept		
+	// bspan_advance()
+	//
+	// move the start pointer forward on the span.  If the size requested 
+	// would go past the end of the span, then don't do anything
+	static int bspan_advance(bspan * a, size_t sz) noexcept		
 	{
-		return bspan_subspan(a, 1,bspan_size(a), b);
+		if (a->fStart+sz > a->fEnd)
+			return -1;
+
+		a->fStart += sz;
+			
+		return 0;
+	}
+
+	// bspan_copy_from_span
+	//
+	// Copy as much of the 'b' span as will fit into the 'a' span
+	// Return the number of bytes copied
+	static size_t bspan_copy_from_span(bspan * a, const bspan * b) noexcept
+	{
+		size_t maxBytes = (bspan_size(a) < bspan_size(b)) ? bspan_size(a) : bspan_size(b);
+		const unsigned char *srcAt = bspan_begin(b);
+		unsigned char *dstAt = (unsigned char *)bspan_begin(a);
+
+		for (int i=0;i<maxBytes;i++){
+			*dstAt = *srcAt;
+			dstAt++;
+			srcAt++;
+		}
+
+		return maxBytes;
 	}
 #ifdef __cplusplus
 }
 #endif
 
-// Place C++ operators and other things in here
-#ifdef __cplusplus
-	// get current value from fStart, like a 'peek' operation
-	static unsigned char& operator*(bspan &a) { static unsigned char zero = 0;  if (a.fStart < a.fEnd) return *(unsigned char*)a.fStart; return  zero; }
-	static const uint8_t& operator*(const bspan &a) { static unsigned char zero = 0;  if (a.fStart < a.fEnd) return *(unsigned char*)a.fStart; return  zero; }
 
-#endif
-
-
-#endif 	// BSPAN_H
+#endif 	// BSPAN_H_INCLUDED

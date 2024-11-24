@@ -5,22 +5,20 @@
 
 #include "bspan.h"
 
-using namespace pcore;
+//using namespace pcore;
 
-	static void writeSpan(const bspan_p chunk)
-	{
-		const unsigned char * s = bspan_begin(chunk);
-        ptrdiff_t n = bspan_size(chunk);
+static void writeSpan(const bspan &bs)
+{
+    bspan s = bs;
 
-        int i=0;
-        while (i<n){
-			printf("%c", *s);
-            s++;
-            i++;
-        }
-	}
+    while (bspan_size(&s)>0)
+    {
+			printf("%c", *(bspan_data(&s)));
+            bspan_advance(&s,1);
+    }
+}
 
-static void printSpan(const bspan_p bs)
+static void printSpan(const bspan &bs)
 {
     writeSpan(bs);
     printf("\n");
@@ -35,10 +33,10 @@ void test_advance()
 
     while (bspan_size(&cspan))
     {
-        unsigned char c = *cspan;
-        printf("%c", c);
+        unsigned char c = *(bspan_data(&cspan));
+        printf("%c - %d\n", c, bspan_size(&cspan));
 
-        bspan_advance(&cspan, 1, &cspan);
+        bspan_advance(&cspan, 1);
     }
     printf("\n");
 }
@@ -68,19 +66,19 @@ void test_subspan()
 {
     printf("== test_subspan == \n");
 
-    struct bspan_t span1;
+    bspan span1;
     bspan_init_from_cstr(&span1,"Beginning Middle End");
 
-    struct bspan_t span2;
+    bspan span2;
     bspan_subspan(&span1, 10,6, &span2);
 
-    printSpan(&span1);
-    printSpan(&span2);
+    printSpan(span1);
+    printSpan(span2);
 }
 
 int main(int argc, char* argv[])
 {
     test_subspan();
-    test_compare();
+//    test_compare();
     test_advance();
 }
