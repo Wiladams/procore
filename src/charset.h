@@ -76,12 +76,7 @@ static int asciiset_init_from_char(asciiset *cs, const char c) noexcept
 static int asciiset_init_from_cstr(asciiset *cs, const char *cstr) noexcept
 {
 	asciiset_reset(cs);
-	char *str = (char *)cstr;
-	while (*str)
-	{
-		asciiset_set_bit(cs, *str);
-		str++;
-	}
+	asciiset_add_cstr(cs, cstr);
 
 	return 0;
 }

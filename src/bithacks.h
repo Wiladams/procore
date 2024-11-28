@@ -34,7 +34,11 @@ static void bhak_get_byte_and_bit_offset(size_t bitnumber, size_t *byteoffset, s
 }
 
 // bhak_get_bit_value
-// get the value of a single bit in a collection ob bytes
+// get the value of a single bit in a collection of bytes
+// -1   error, out of range
+//  1   bit is set to 1
+//  0   bit is set to 0
+//
 static int bhak_get_bit_value(const uint8_t *bytes, size_t nBytes, size_t bitAt)
 {
     size_t byteoffset=0;
