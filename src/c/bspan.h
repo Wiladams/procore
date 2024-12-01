@@ -37,7 +37,7 @@ extern "C" {
 	};
 
 	typedef struct bspan_t bspan;
-	//typedef bspan* bspan_p;
+
 
 
 	// Forward function declarations
@@ -53,6 +53,8 @@ extern "C" {
 	static int bspan_init(bspan * bs, const void *pt1, const void *pt2) noexcept;
 	static int bspan_init_from_data(bspan * bs, const void *data, size_t sz) noexcept;
 	static int bspan_init_from_cstr(bspan * bs, const char* cstr) noexcept;
+	static int bspan_weak_assign(bspan *, const bspan *b) noexcept;
+
 	static int bspan_set_all(bspan *bs, const unsigned char c) noexcept;
 	static size_t bspan_copy_from_span(bspan * a, const bspan * b) noexcept;
 
@@ -116,6 +118,13 @@ extern "C" {
 		return bspan_init(bs, data, dataEnd);
 	}
 
+	static int bspan_weak_assign(bspan *a, const bspan *b) noexcept
+	{
+		a->fStart = b->fStart;
+		a->fEnd = b->fEnd;
+		return 0;
+	}
+
 	// bspan_set_all()
 	// set all bytes in the span to the specified value
 	static int bspan_set_all(bspan *bs, const unsigned char c) noexcept
@@ -153,7 +162,7 @@ extern "C" {
 	static const unsigned char* bspan_data(const bspan * bs) noexcept {return bs->fStart;}
 	static const unsigned char* bspan_begin(const bspan * bs) noexcept {return bs->fStart;}
 	static const unsigned char* bspan_end(const bspan * bs) noexcept { return bs->fEnd; }
-	static unsigned char bspan_font(const bspan *bs) noexcept {if ((bs->fStart != nullptr) && (bs->fStart < bs->fEnd)) return *bs->fStart; return 0; }
+	static unsigned char bspan_front(const bspan *bs) noexcept {if ((bs->fStart != nullptr) && (bs->fStart < bs->fEnd)) return *bs->fStart; return 0; }
 	
 	// Byte Comparison operations
 	static int bspan_compare_span(const bspan * a, const bspan * b) noexcept
@@ -188,28 +197,7 @@ extern "C" {
 	}
 
 
-	// bspan_begins_with_bspan()
-	// This is the first one with the cleanest semantics
-	// It is a byte comparison, assuming the first operand is at 
-	// least as big as the second, and that every byte from the second
-	// operand is located in sequence in the first operand.
-	static bool bspan_begins_with_span(const bspan * a, const bspan * b) noexcept
-	{
-		ptrdiff_t len = bspan_size(b);
-		
-		if (len > bspan_size(a))
-			return false;
 
-		const unsigned char *cs = bspan_begin(a);
-		const unsigned char *ct = bspan_begin(b);
-
-		for (int i=0;i<len;i++,cs++, ct++)
-  		{
-			if (*cs != *ct)
-				return false;
-  		}
-  		return true;
-	}
 
 	// bspan_subspan()
 	//

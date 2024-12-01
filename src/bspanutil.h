@@ -17,9 +17,6 @@ namespace pcore
 		static inline ByteSpan chunk_trim(const ByteSpan& a, const charset& skippable) noexcept;
 		static inline ByteSpan chunk_skip_wsp(const ByteSpan& a) noexcept;
 		
-		static inline ByteSpan chunk_subchunk(const ByteSpan& a, const size_t start, const size_t sz) noexcept;
-		static inline ByteSpan chunk_take(const ByteSpan& dc, size_t n) noexcept;
-
 		static inline bool chunk_starts_with(const ByteSpan& a, const ByteSpan& b) noexcept;
 		static inline bool chunk_starts_with_char(const ByteSpan& a, const uint8_t b) noexcept;
 		static inline bool chunk_starts_with_cstr(const ByteSpan& a, const char* b) noexcept;
