@@ -1,10 +1,27 @@
 #pragma once
 
-#include "pconfig.hpp"
-#include "bytespan.h"
-
 #include <cstdio>
 
+#include "bspan.h"
+
+static void writeSpan(const bspan &bs)
+{
+    bspan s = bs;
+
+    while (bspan_size(&s)>0)
+    {
+			printf("%c", *(bspan_data(&s)));
+            bspan_advance(&s,1);
+    }
+}
+
+static void printSpan(const bspan &bs)
+{
+    writeSpan(bs);
+    printf("\n");
+}
+
+/*
 namespace pcore {
     static void writeChunkToFile(const ByteSpan& chunk, const char* filename);
     static void writeChunk(const ByteSpan& chunk);
@@ -59,3 +76,4 @@ namespace pcore {
 
 	}
 }
+*/

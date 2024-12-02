@@ -2,15 +2,34 @@
 #include <cstdlib>
 
 #include "lexutil.h"
+#include "bspanprint.h"
 
-static void writeSpan(const bspan &bs)
+
+
+void test_front_token()
 {
-    bspan s = bs;
+    printf("==== test_front_token ====\n");
 
-    while (bspan_size(&s)>0)
+    asciiset wspset;
+    asciiset_init_from_cstr(&wspset, " \t\r\n");
+
+    bspan span1;
+    bspan_init_from_cstr(&span1, "  they were the best of times");
+
+    bspan rest;
+    bspan_weak_assign(&rest, &span1);
+
+    for (;;)
     {
-			printf("%c", *(bspan_data(&s)));
-            bspan_advance(&s,1);
+        bspan tok;
+
+        lex_front_token(&rest, &wspset, &wspset, &tok, &rest);
+
+        if (!bspan_is_valid(&tok))
+            break;
+
+        printSpan(tok);
+        printSpan(rest);
     }
 }
 
@@ -57,8 +76,29 @@ void test_skip_leading()
     writeSpan(span2);
 }
 
+void test_skip_trailing()
+{
+    printf("==== test_skip_trailing ====\n");
+
+    bspan span1;
+    bspan_init_from_cstr(&span1, "this has a long tail    \r\n");
+
+    bspan span2;
+    asciiset wspset;
+    asciiset_init_from_cstr(&wspset, " \t\r\n");
+
+    lex_skip_trailing_charset(&span1, &wspset, &span2);
+
+    printf("|");
+    writeSpan(span2);
+    printf("|\n");
+
+}
+
 int main(int argc, char* argv[])
 {
     //test_skip_leading();
-    test_skip_until();
+    test_skip_trailing();
+    //test_skip_until();
+    test_front_token();
 }

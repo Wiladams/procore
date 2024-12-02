@@ -48,6 +48,13 @@ struct asciiset_t {
 };
 typedef struct asciiset_t asciiset;
 
+static int is_control(unsigned char) noexcept;
+static int is_digit(unsigned char) noexcept;
+static int is_extended(unsigned char) noexcept;
+static int is_hex_digit(unsigned char) noexcept;
+static int is_printable(unsigned char) noexcept;
+
+
 static void asciiset_reset(asciiset *) noexcept;
 static int asciiset_clone(asciiset *a, asciiset *b) noexcept;
 static int asciiset_init_from_char(asciiset *, const unsigned char ) noexcept;
@@ -65,6 +72,20 @@ static int asciiset_remove_set(asciiset *cs, const asciiset *b) noexcept;
 
 
 // Implementation
+// convert a hex digit to a base 10 digit
+// if conversion is successful, 0 is returned
+static int is_control(unsigned char c) noexcept {return (c== 0x7f) || (c>=0 && c <= 0x1f);}
+static int is_digit(unsigned char c) noexcept {return c>='0' && c <='9';}
+static int is_extended(unsigned char c) noexcept {return c>=80 && c<=0xff;}
+static int is_hex_digit(unsigned char c) noexcept {
+    return (c>='a' && c<='f') ||
+        (c>='A' && c<= 'F') ||
+        (c>='0' && c<='9');
+}
+static int is_printable(unsigned char c) noexcept {return c>= 0x20 && c<=0x7e;}
+
+
+
 static void asciiset_reset(asciiset *cs) noexcept
 {
 	// set all bytes to zero
@@ -110,14 +131,17 @@ static int asciiset_remove_chars(asciiset *cs, const char *cstr) noexcept
 		bhak_remove_bit_value(cs->fBits, ASCIISET_SIZE, *str);
 		str++;
 	}
+
+	return 0;
 }
 
 
 static int asciiset_remove_set(asciiset *cs, const asciiset *b) noexcept
 {
-    	for (int i=0;i< ASCIISET_SIZE;i++)
+    for (int i=0;i< ASCIISET_SIZE;i++)
 		cs->fBits[i] &= ~b->fBits[i];
-
+	
+	return 0;
 }
 
 

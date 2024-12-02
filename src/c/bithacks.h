@@ -6,6 +6,8 @@ extern "C" {
 #endif
 
 #include <cstdint>
+static bool bhak_isLE() noexcept { int i = 1; return (int)*((unsigned char*)&i) == 1; }
+static bool bhak_isBE() noexcept { return !bhak_isLE(); }
 
 static uint8_t BIT8(size_t bitnum) noexcept {return (uint8_t)1 << bitnum; }
 static uint16_t BIT16(size_t bitnum) noexcept {return (uint16_t)1 << bitnum; }
