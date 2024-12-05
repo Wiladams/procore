@@ -95,10 +95,28 @@ void test_skip_trailing()
 
 }
 
+void test_read_quoted()
+{
+    printf("==== test_read_quoted ====\n");
+    bspan span1;
+    bspan_init_from_cstr(&span1, "'here is a quoted string' and the rest after that");
+    
+    bspan quoted;
+    bspan rest;
+    lex_read_quoted(&span1, &quoted, &rest);
+    printf("|");
+    writeSpan(quoted);
+    printf("|\n");
+    printf("rest: ");
+    writeSpan(rest);
+    printf("\n");
+}
+
 int main(int argc, char* argv[])
 {
     //test_skip_leading();
-    test_skip_trailing();
+    //test_skip_trailing();
     //test_skip_until();
-    test_front_token();
+    //test_front_token();
+    test_read_quoted();
 }

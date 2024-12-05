@@ -9,12 +9,12 @@ extern "C" {
 #endif
 
 
-    //============================================================
-    // readCData()
-    //============================================================
+//============================================================
+// readCData()
+//============================================================
 
-    static bool readCData(bspan *src, bspan * dataChunk) noexcept
-    {
+static bool readCData(bspan *src, bspan * dataChunk) PC_NOEXCEPT_C
+{
         // Skip past the ![CDATA[
         bspan_advance(src, 8);
 
@@ -31,34 +31,35 @@ extern "C" {
         bspan_advance(src, 3);
 
         return true;
-    }
+}
 
-    //============================================================
-    // readComment()
-    //============================================================
-    static bool readComment(bspan * src, bspan *dataChunk) noexcept
-	{
-		// Skip past the !--
-        bspan_advance(src, 3);
+//============================================================
+// readComment()
+//============================================================
+static int xml_scan_read_comment(bspan * src, bspan *dataChunk) PC_NOEXCEPT_C
+{
+	// Skip past the !--
+    bspan_advance(src, 3);
 
-        bspan_weak_assign(dataChunk, src);
+    bspan_weak_assign(dataChunk, src);
 
-		dataChunk->fEnd = src->fStart;
+	dataChunk->fEnd = src->fStart;
 
-		// Extend the data chunk until we find the closing -->
-		//bspan endComment = chunk_find_cstr(src, "-->");
-        bspan endComment;
-        lex_find_cstr(src, "-->", &endComment);
+	// Extend the data chunk until we find the closing -->
+	//bspan endComment = chunk_find_cstr(src, "-->");
+    bspan endComment;
+    lex_find_cstr(src, "-->", &endComment);
 
-		dataChunk.fEnd = endComment.fStart;
+	dataChunk->fEnd = endComment.fStart;
 
-        bspan_weak_assign(src, &endComment);
+    src->fStart = endComment.fEnd++;
+    //bspan_weak_assign(src, &endComment);
 
-		// skip past the closing -->
-        bspan_advance(src, 3);
+	// skip past the end of the comment  '-->'
+    bspan_advance(src, 3);
 
-		return true;
-	}
+	return 0;
+}
     
     //============================================================
 	// readEntityDeclaration()
@@ -66,32 +67,33 @@ extern "C" {
     // !ENTITY  name 'quoted value' >
     // Return a name and value
 	//============================================================
-    static bool readEntityDeclaration(bspan *src, bspan *dataChunk) noexcept
-    {
-        // Skip past the !ENTITY
-        bspan_advance(src, 7);
+static int xml_scan_read_entity_declaration(bspan *src, bspan *dataChunk) PC_NOEXCEPT_C
+{
+    // Skip past the !ENTITY
+    bspan_advance(src, 7);
 
-        dataChunk = src;
+    dataChunk = src;
 
-		// skip until we see the closing '>' character
-		src = chunk_find_char(src, '>');
+	// skip until we see the closing '>' character
+	src = chunk_find_char(src, '>');
 
-        dataChunk.fEnd = src.fStart;
+    dataChunk.fEnd = src.fStart;
 
-        // skip past that character and return
-		src++;
+    // skip past that character and return
+	bspan_advance(src, 1);
 
-		return true;
-    }
+    return 0;
+}
     
-    //============================================================
-    // readDoctype
-    // Reads the doctype chunk, and returns it as a ByteSpan
-    // fSource is currently sitting at the beginning of !DOCTYPE
-    // Note: https://www.tutorialspoint.com/xml/xml_dtds.htm
-    //============================================================
-    static bool readDoctype(bspan * src, bspan * dataChunk) noexcept
-    {
+//============================================================
+// xml_scan_read_doctype
+//
+// Reads the doctype chunk, and returns it as a ByteSpan
+// fSource is currently sitting at the beginning of !DOCTYPE
+// Note: https://www.tutorialspoint.com/xml/xml_dtds.htm
+//============================================================
+static int xml_scan_read_doctype(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
+{
         // skip past the !DOCTYPE to the first whitespace character
         src += 8;
 
@@ -131,45 +133,46 @@ extern "C" {
 			// Skip past the PUBLIC
 			src += 6;
 
-            ByteSpan publicId{};
-			ByteSpan systemId{};
+            bspan publicId{};
+			bspan systemId{};
             
             // Skip white space before the quoted bytes
             lex_ltrim(src, xmlwspchars());
-
-            lex_read_quoted(src, publicId);
+            lex_read_quoted(src, &publicId, src);
             
             // Skip white space before the quoted bytes
             lex_ltrim(src, xmlwspchars());
-            lex_read_quoted(src, systemId);
+            lex_read_quoted(src, &systemId, src);
 
 			// Skip past the whitespace
 			src = chunk_ltrim(src, xmlwsp);
 
 			// If we have a closing '>', then we're done
-			if (*src == '>')
+			if (bspan_front(src) == '>')
 			{
-				src++;
-                dataChunk.fStart = src.fStart;
-				dataChunk.fEnd = src.fStart;
+                bspan_advance(src, 1);
+                bspan_init_from_pointers(dataChunk, src->fStart, src->fStart);
                 
 				return true;
 			}
 
 			// If we have an opening '[', then we have more to parse
-			if (*src == '[')
+			if (bspan_front(src) == '[')
 			{
 				// Skip past the opening '['
-				src++;
+                bspan_advance(src, 1);
 
 				// Find the closing ']>'
-				ByteSpan endDTD = chunk_find_cstr(src, "]>");
-				dataChunk = src;
-				dataChunk.fEnd = endDTD.fStart;
+				bspan endDTD;
+                lex_find_cstr(src, "]>", &endDTD);
+				
+                bspan_init_from_pointers(dataChunk, bspan_begin(src), bspan_begin(&endDTD));
+
 
 				// Skip past the closing ']>'
-				src.fStart = endDTD.fStart + 2;
-				return true;
+				src->fStart = endDTD.fStart + 2;
+				
+                return 0;
 			}
 		}
 		else if (src.startsWith("SYSTEM"))
@@ -211,12 +214,11 @@ extern "C" {
 		return false;
     }
     
-    //============================================================
-    // readTag()
-    //============================================================
-
-    static bool readTag(bspan * src, bspan * dataChunk) noexcept
-    {
+//============================================================
+// readTag()
+//============================================================
+static int xml_scan_read_tag(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
+{
         const unsigned char* srcPtr = src.fStart;
 		const unsigned char* endPtr = src.fEnd;
         
@@ -234,15 +236,15 @@ extern "C" {
         // we did see the closing, so capture the name into 
         // the data chunk, and trim whitespace off the end.
         dataChunk.fEnd = srcPtr;
-        dataChunk = chunk_rtrim(dataChunk, xmlwsp);
+        lex_rtrim(dataChunk, wspcharset());
 
         // move past the '>'
         srcPtr++;
         src.fStart = srcPtr;
 
 
-        return true;
-    }
+    return 0;
+}
 
 
 // XML_ITERATOR_STATE
@@ -278,7 +280,7 @@ struct xmliteratorstate_t {
 };
 typedef struct xmliteratorstate_t xmliteratorstate;
 
-static int xml_iter_state_init(xmliteratorstate *s) noexcept
+static int xml_iter_state_init(xmliteratorstate *s) PC_NOEXCEPT_C
 {
     s->fState = XML_ITERATOR_STATE_CONTENT;
     bspan_init(&s->fSource);
@@ -287,7 +289,7 @@ static int xml_iter_state_init(xmliteratorstate *s) noexcept
     return 0;
 }
 
-static int xml_iter_params_init(xmliterparams *p) noexcept
+static int xml_iter_params_init(xmliterparams *p) PC_NOEXCEPT_C
 {
     p->fSkipComments = true;
     p->fSkipProcessingInstructions = false;
@@ -300,7 +302,7 @@ static int xml_iter_params_init(xmliterparams *p) noexcept
 
 // XmlElementGenerator
 // A function to get the next element in an iteration
-static int xml_iter_next_element(const xmliterparams * params, xmliteratorstate * st, xmlelement *elem)
+static int xml_iter_next_element(const xmliterparams * params, xmliteratorstate * st, xmlelement *elem) PC_NOEXCEPT_C
 {
         
     while (bspan_is_valid(&st->fSource))

@@ -35,10 +35,11 @@ struct xmlname_t {
 };
 typedef struct xmlname_t xmlname;
 
-int xml_name_reset(xmlname *a, const bspan * inChunk) PC_NOEXCEPT_C;
-int xml_name_weak_assign(xmlname *a, const xmlname *b) PC_NOEXCEPT_C;
-int xml_name_name(const xmlname *a, bspan *name) PC_NOEXCEPT_C;
-int xml_name_namespace(const xmlname *a, bspan *nspace) PC_NOEXCEPT_C;
+static int xml_name_init(xmlname *a) PC_NOEXCEPT_C;
+static int xml_name_reset(xmlname *a, const bspan * inChunk) PC_NOEXCEPT_C;
+static int xml_name_weak_assign(xmlname *a, const xmlname *b) PC_NOEXCEPT_C;
+static int xml_name_name(const xmlname *a, bspan *name) PC_NOEXCEPT_C;
+static int xml_name_namespace(const xmlname *a, bspan *nspace) PC_NOEXCEPT_C;
 
 struct xmlelement_t
 {
@@ -54,6 +55,13 @@ static int xml_element_init_from_element(xmlelement *a, const xmlelement *b) PC_
 
 static int xml_element_is_valid(const xmlelement *e) PC_NOEXCEPT_C;
 static int xml_element_scanNameSpan(xmlelement *e) PC_NOEXCEPT_C;
+
+static int xml_element_is_kind(const xmlelement *e, int kind) PC_NOEXCEPT_C;
+static int xml_element_get_kind(const xmlelement *e) PC_NOEXCEPT_C;
+static int xml_element_set_kind(xmlelement *e, int kind) PC_NOEXCEPT_C;
+
+static int xml_element_get_data(const xmlelement *e, bspan *d) PC_NOEXCEPT_C;
+
 
 
 
@@ -140,12 +148,29 @@ static int xml_element_init(xmlelement *e) PC_NOEXCEPT_C
     xml_name_init(&e->fXmlName);
 }
 
+// A copy constructor, or assignment operator
 int xml_element_init_from_element(xmlelement *a, const xmlelement *b) PC_NOEXCEPT_C
 {
     a->fElementKind = b->fElementKind;
     bspan_weak_assign(&a->fNameSpan, &b->fNameSpan);
     bspan_weak_assign(&a->fData, &b->fData);
     xml_name_weak_assign(&a->fXmlName, &b->fXmlName);
+}
+
+static int xml_element_init_from_data(xmlelement *e, int kind, const bspan * data) PC_NOEXCEPT_C
+{
+    xml_element_init(e);
+
+    e->fElementKind = kind;
+    bspan_weak_assign(&e->fData, data);
+
+
+    if ((kind == XML_ELEMENT_TYPE_START_TAG) ||
+                (kind == XML_ELEMENT_TYPE_SELF_CLOSING) ||
+                (kind == XML_ELEMENT_TYPE_END_TAG))
+    {
+                xml_element_scanNameSpan(e);
+    }
 }
 
 static int xml_element_is_valid(xmlelement *e) PC_NOEXCEPT_C
@@ -194,21 +219,7 @@ static int xml_element_scanNameSpan(xmlelement *e) PC_NOEXCEPT_C
 
 
 
-static int xml_element_init_from_data(xmlelement *e, int kind, const bspan * data) PC_NOEXCEPT_C
-{
-    xml_element_init(e);
 
-    e->fElementKind = kind;
-    bspan_weak_assign(&e->fData, data);
-
-
-    if ((kind == XML_ELEMENT_TYPE_START_TAG) ||
-                (kind == XML_ELEMENT_TYPE_SELF_CLOSING) ||
-                (kind == XML_ELEMENT_TYPE_END_TAG))
-    {
-                xml_element_scanNameSpan(e);
-    }
-}
 
         // determines whether the element is currently empty
 //        constexpr bool isEmpty() const { return fElementKind == XML_ELEMENT_TYPE_INVALID; }
@@ -223,7 +234,7 @@ static int xml_element_init_from_data(xmlelement *e, int kind, const bspan * dat
         //ByteSpan name() const { return fXmlName.name(); }
 
 // Convenience for what kind of tag it is
-static bool xml_element_is_kind(const xmlelement *e, int kind) PC_NOEXCEPT_C {return e->fElementKind == kind;}
+static int xml_element_is_kind(const xmlelement *e, int kind) PC_NOEXCEPT_C {return e->fElementKind == kind ?1:0;}
 static int xml_element_get_kind(const xmlelement *e) PC_NOEXCEPT_C { return e->fElementKind; }
 static int xml_element_set_kind(xmlelement *e, int kind) PC_NOEXCEPT_C { e->fElementKind = kind;}
 

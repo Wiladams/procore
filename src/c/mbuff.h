@@ -12,16 +12,16 @@ struct mbuff_t {
 };
 typedef struct mbuff_t mbuff;
 
-int mbuff_reset(mbuff *, unsigned char *data, size_t sz) noexcept;
-int mbuff_init_from_size(mbuff *, size_t sz) noexcept;
-int mbuff_destroy(mbuff*) noexcept;
-int mbuff_transfer(mbuff *, mbuff *) noexcept;
+int mbuff_reset(mbuff *, unsigned char *data, size_t sz) PC_NOEXCEPT_C;
+int mbuff_init_from_size(mbuff *, size_t sz) PC_NOEXCEPT_C;
+int mbuff_destroy(mbuff*) PC_NOEXCEPT_C;
+int mbuff_transfer(mbuff *, mbuff *) PC_NOEXCEPT_C;
 
 
 
 // IMPLEMENTATION
 
-int mbuff_reset(mbuff *a, unsigned char *data, size_t sz) noexcept
+int mbuff_reset(mbuff *a, unsigned char *data, size_t sz) PC_NOEXCEPT_C
 {
     a->fData = data;
     a->fSize = sz;
@@ -29,7 +29,7 @@ int mbuff_reset(mbuff *a, unsigned char *data, size_t sz) noexcept
     return 0;
 }
 
-int mbuff_init_from_size(mbuff *a, size_t sz) noexcept
+int mbuff_init_from_size(mbuff *a, size_t sz) PC_NOEXCEPT_C
 {
     a->fData = new uint8_t[sz];
     a->fSize = sz;
@@ -37,7 +37,7 @@ int mbuff_init_from_size(mbuff *a, size_t sz) noexcept
     return 0;
 }
 
-int mbuff_destroy(mbuff *a) noexcept
+int mbuff_destroy(mbuff *a) PC_NOEXCEPT_C
 {
     if (a->fData != nullptr && a->fSize>0)
         delete [] a->fData;
@@ -45,7 +45,7 @@ int mbuff_destroy(mbuff *a) noexcept
     return 0;
 }
 
-int mbuff_transfer(mbuff *a, mbuff *b) noexcept
+int mbuff_transfer(mbuff *a, mbuff *b) PC_NOEXCEPT_C
 {
     a->fData = b->fData;
     a->fSize = b->fSize;
