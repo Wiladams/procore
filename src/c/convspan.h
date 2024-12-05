@@ -3,6 +3,7 @@
 
 #include <cmath>
 
+#include "pcoredef.h"
 #include "asciiset.h"
 #include "bspan.h"
 
@@ -20,19 +21,19 @@ extern "C" {
 
 
 // First set of routines convert a pointer to a specified numeric type
-static uint8_t as_u8_le(const unsigned char *a) noexcept;
-static uint16_t as_u16_le(const unsigned char *a) noexcept;
-static uint32_t as_u32_le(const unsigned char *a) noexcept;
-static uint64_t as_u64_le(const unsigned char *a) noexcept;
-static float as_float_le(const unsigned char *a) noexcept;
-static double as_double_le(const unsigned char *a) noexcept;
+static uint8_t as_u8_le(const unsigned char *a) PC_NOEXCEPT;
+static uint16_t as_u16_le(const unsigned char *a) PC_NOEXCEPT;
+static uint32_t as_u32_le(const unsigned char *a) PC_NOEXCEPT;
+static uint64_t as_u64_le(const unsigned char *a) PC_NOEXCEPT;
+static float as_float_le(const unsigned char *a) PC_NOEXCEPT;
+static double as_double_le(const unsigned char *a) PC_NOEXCEPT;
 
-static int  hexToDec(const unsigned char vIn, unsigned char *) noexcept;
+static int  hexToDec(const unsigned char vIn, unsigned char *) PC_NOEXCEPT;
 
-static int bspan_conv_hex_to_u64(const bspan * inSpan, uint64_t *outValue, bspan *rest) noexcept;
-static int bspan_conv_to_u64(const bspan * inChunk, uint64_t * v, bspan *rest) noexcept;
-static int bspan_conv_to_i64(const bspan * inChunk, uint64_t * v, bspan *rest) noexcept;
-static int bspan_conv_to_double(const bspan * inChunk, double * v, bspan *rest) noexcept;
+static int bspan_conv_hex_to_u64(const bspan * inSpan, uint64_t *outValue, bspan *rest) PC_NOEXCEPT;
+static int bspan_conv_to_u64(const bspan * inChunk, uint64_t * v, bspan *rest) PC_NOEXCEPT;
+static int bspan_conv_to_i64(const bspan * inChunk, uint64_t * v, bspan *rest) PC_NOEXCEPT;
+static int bspan_conv_to_double(const bspan * inChunk, double * v, bspan *rest) PC_NOEXCEPT;
 
 //
 // IMPLEMENTATION
@@ -41,44 +42,44 @@ static int bspan_conv_to_double(const bspan * inChunk, double * v, bspan *rest) 
 
 
 
-static uint8_t as_u8_le(const unsigned char *a) noexcept {return (*a);}
-static uint8_t as_u8_be(const unsigned char *a) noexcept {return (*a);}
+static uint8_t as_u8_le(const unsigned char *a) PC_NOEXCEPT {return (*a);}
+static uint8_t as_u8_be(const unsigned char *a) PC_NOEXCEPT {return (*a);}
 
-static uint16_t as_u16_le(const unsigned char *a) noexcept 
+static uint16_t as_u16_le(const unsigned char *a) PC_NOEXCEPT 
 {
     return (uint16_t(a[0]) | uint16_t(a[1] << 8));
 }
 
-static uint16_t as_u16_be(const unsigned char *a) noexcept 
+static uint16_t as_u16_be(const unsigned char *a) PC_NOEXCEPT 
 {
     return (uint16_t(a[1]) | uint16_t(a[0] << 8));
 }
 
-static uint32_t as_u32_le(const unsigned char *a) noexcept
+static uint32_t as_u32_le(const unsigned char *a) PC_NOEXCEPT
 {
     return (uint32_t(a[0]) | uint32_t(a[1] << 8)| uint32_t(a[2] << 16) | uint32_t(a[3] << 24));
 }
 
-static uint32_t as_u32_be(const unsigned char *a) noexcept
+static uint32_t as_u32_be(const unsigned char *a) PC_NOEXCEPT
 {
     return (uint32_t(a[3]) | uint32_t(a[2] << 8)| uint32_t(a[1] << 16) | uint32_t(a[0] << 24));
 }
 
-static uint64_t as_u64_le(const unsigned char *a) noexcept
+static uint64_t as_u64_le(const unsigned char *a) PC_NOEXCEPT
 {
     return (uint64_t(a[0]) | uint64_t(a[1]) << 8 | uint64_t(a[2]) << 16 | uint64_t(a[3]) << 24 |
         uint64_t(a[4]) << 32 | uint64_t(a[5]) << 40 | uint64_t(a[6]) << 48 | uint64_t(a[7]) << 56);
 
 }
 
-static uint64_t as_u64_be(const unsigned char *a) noexcept
+static uint64_t as_u64_be(const unsigned char *a) PC_NOEXCEPT
 {
     return (uint64_t(a[7]) | uint64_t(a[6]) << 8 | uint64_t(a[5]) << 16 | uint64_t(a[4]) << 24 |
         uint64_t(a[3]) << 32 | uint64_t(a[2]) << 40 | uint64_t(a[1]) << 48 | uint64_t(a[0]) << 56);
 
 }
 
-static float as_float_le(const unsigned char *a) noexcept
+static float as_float_le(const unsigned char *a) PC_NOEXCEPT
 {
     uint32_t i = as_u32_le(a);
     float f;
@@ -86,7 +87,7 @@ static float as_float_le(const unsigned char *a) noexcept
     return f;
 }
 
-static float as_float_be(const unsigned char *a) noexcept
+static float as_float_be(const unsigned char *a) PC_NOEXCEPT
 {
     uint32_t i = as_u32_be(a);
     float f;
@@ -94,7 +95,7 @@ static float as_float_be(const unsigned char *a) noexcept
     return f;
 }
 
-static double as_double_le(const unsigned char *a) noexcept
+static double as_double_le(const unsigned char *a) PC_NOEXCEPT
 {
     uint64_t i = as_u64_le(a);
     double d;
@@ -102,7 +103,7 @@ static double as_double_le(const unsigned char *a) noexcept
     return d;
 }
 
-static double as_double_be(const unsigned char *a) noexcept
+static double as_double_be(const unsigned char *a) PC_NOEXCEPT
 {
     uint64_t i = as_u64_be(a);
     double d;
@@ -110,7 +111,7 @@ static double as_double_be(const unsigned char *a) noexcept
     return d;
 }
 
-static int  hexToDec(const unsigned char vIn, unsigned char *vOut) noexcept
+static int  hexToDec(const unsigned char vIn, unsigned char *vOut) PC_NOEXCEPT
 {
     if (vIn >= '0' && vIn <= '9')
         *vOut = vIn - '0';
@@ -129,7 +130,7 @@ static int  hexToDec(const unsigned char vIn, unsigned char *vOut) noexcept
 // Specified as:  0xffeeddffaaccee55
 // The leading '0x' is not specified
 //
-static  int bspan_conv_hex_to_u64(const bspan * inSpan, uint64_t *outValue, bspan *rest) noexcept
+static  int bspan_conv_hex_to_u64(const bspan * inSpan, uint64_t *outValue, bspan *rest) PC_NOEXCEPT
 {
     if (!bspan_is_valid(inSpan))
         return -1;
@@ -157,7 +158,7 @@ static  int bspan_conv_hex_to_u64(const bspan * inSpan, uint64_t *outValue, bspa
 	}
         
     if (rest!=nullptr){
-        bspan_init(rest, sStart, sEnd);
+        bspan_init_from_pointers(rest, sStart, sEnd);
     }
 
     return 0;
@@ -167,7 +168,7 @@ static  int bspan_conv_hex_to_u64(const bspan * inSpan, uint64_t *outValue, bspa
 //
 // If successful, the value is stored in the out parameter
 //
-static int bspan_conv_to_u64(const bspan * inChunk, uint64_t * v, bspan *rest) noexcept
+static int bspan_conv_to_u64(const bspan * inChunk, uint64_t * v, bspan *rest) PC_NOEXCEPT
 {
     bspan s;
     bspan_weak_assign(&s, inChunk);
@@ -193,13 +194,13 @@ static int bspan_conv_to_u64(const bspan * inChunk, uint64_t * v, bspan *rest) n
     }
 
     if (rest != nullptr){
-        bspan_init(rest, sStart, s.fEnd);
+        bspan_init_from_pointers(rest, sStart, s.fEnd);
     }
 
     return 0;
 }
 
-static int bspan_conv_to_i64(const bspan * inChunk, uint64_t * v, bspan *rest) noexcept
+static int bspan_conv_to_i64(const bspan * inChunk, uint64_t * v, bspan *rest) PC_NOEXCEPT
 {
     if (!bspan_is_valid(inChunk))
         return -1;
@@ -239,7 +240,7 @@ static int bspan_conv_to_i64(const bspan * inChunk, uint64_t * v, bspan *rest) n
     // of the ByteSpan to beyond where we found the last character of the number.
     // Assumption:  We're sitting at beginning of a number, all whitespace handling
     // has already occured.
-static int bspan_conv_to_double(const bspan * inChunk, double * v, bspan *rest) noexcept
+static int bspan_conv_to_double(const bspan * inChunk, double * v, bspan *rest) PC_NOEXCEPT
 {
     if (!bspan_is_valid(inChunk))
         return -1;

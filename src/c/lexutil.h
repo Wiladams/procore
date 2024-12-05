@@ -1,6 +1,7 @@
 #ifndef LEXUTIL_H_INCLUDED
 #define LEXUTIL_H_INCLUDED
 
+#include "pcoredef.h"
 #include "bspan.h"
 #include "asciiset.h"
 
@@ -8,22 +9,26 @@
 extern "C" {
 #endif
 
-static int lex_front_token(const bspan* a, const asciiset *skipleading, const asciiset *delim, bspan *tok, bspan *rest) noexcept;
-static int lex_skip_leading_charset(const bspan* a, const asciiset *skippable, bspan *b) noexcept;
-static int lex_skip_trailing_charset(const bspan* a, const asciiset *skippable, bspan *b) noexcept;
-static int lex_skip_until_charset(const bspan* a, const asciiset *skippable, bspan *b, bspan *) noexcept;
 
-static int lex_ltrim(const bspan* a, const asciiset * skippable, bspan *b) noexcept;
-static int lex_rtrim(const bspan* a, const asciiset * skippable, bspan *b) noexcept;
-static int lex_trim(const bspan* a, const asciiset * skippable, bspan *b) noexcept;
 
-static bool lex_begins_with_span(const bspan * a, const bspan * b) noexcept;
+
+static int lex_front_token(const bspan* a, const asciiset *skipleading, const asciiset *delim, bspan *tok, bspan *rest) PC_NOEXCEPT;
+static int lex_skip_leading_charset(const bspan* a, const asciiset *skippable, bspan *b) PC_NOEXCEPT;
+static int lex_skip_trailing_charset(const bspan* a, const asciiset *skippable, bspan *b) PC_NOEXCEPT;
+static int lex_skip_until_charset(const bspan* a, const asciiset *skippable, bspan *b, bspan *) PC_NOEXCEPT;
+
+static int lex_ltrim(bspan* a, const asciiset * skippable) PC_NOEXCEPT;
+static int lex_rtrim(bspan* a, const asciiset * skippable) PC_NOEXCEPT;
+static int lex_trim(bspan* a, const asciiset * skippable) PC_NOEXCEPT;
+
+static bool lex_begins_with_span(const bspan * a, const bspan * b) PC_NOEXCEPT;
+static int lex_read_quoted(bspan *src, bspan *dataChunk) PC_NOEXCEPT;
 
 
 // Implementation
 // lex_skip_leading_charset
 // Skip any characters if they are on the front of the span
-static int lex_skip_leading_charset(const bspan* a, const asciiset *skippable, bspan *b) noexcept
+static int lex_skip_leading_charset(const bspan* a, const asciiset *skippable, bspan *b) PC_NOEXCEPT
 {
     bspan_weak_assign(b, a);
     unsigned char *startAt = (unsigned char *)b->fStart;
@@ -39,7 +44,7 @@ static int lex_skip_leading_charset(const bspan* a, const asciiset *skippable, b
     return 0;
 }
 
-static int lex_skip_trailing_charset(const bspan* a, const asciiset *skippable, bspan *b) noexcept
+static int lex_skip_trailing_charset(const bspan* a, const asciiset *skippable, bspan *b) PC_NOEXCEPT
 {
     if (!bspan_is_valid(a))
         return -1;
@@ -58,7 +63,30 @@ static int lex_skip_trailing_charset(const bspan* a, const asciiset *skippable, 
     return 0;
 }
 
-static int lex_skip_until_charset(const bspan* a, const asciiset *skippable, bspan *tok, bspan *rest) noexcept
+static int lex_ltrim(bspan* a, const asciiset * skippable) PC_NOEXCEPT
+{
+    return lex_skip_leading_charset(a, skippable, a);
+}
+
+static int lex_rtrim(bspan* a, const asciiset * skippable) PC_NOEXCEPT
+{
+    return lex_skip_trailing_charset(a, skippable, a);
+}
+
+static int lex_trim(bspan* a, const asciiset * skippable) PC_NOEXCEPT
+{
+    int err = lex_ltrim(a, skippable);
+    if (err != 0)
+        return err;
+
+    err = lex_rtrim(a, skippable);
+    
+    return err;
+}
+
+
+
+static int lex_skip_until_charset(const bspan* a, const asciiset *skippable, bspan *tok, bspan *rest) PC_NOEXCEPT
 {
     bspan_weak_assign(tok, a);
     bspan_weak_assign(rest, a);
@@ -83,7 +111,7 @@ static int lex_skip_until_charset(const bspan* a, const asciiset *skippable, bsp
     return 0;
 }
 
-static int lex_front_token(const bspan* a, const asciiset *skipleading, const asciiset *delim, bspan *tok, bspan *rest) noexcept
+static int lex_front_token(const bspan* a, const asciiset *skipleading, const asciiset *delim, bspan *tok, bspan *rest) PC_NOEXCEPT
 {
     bspan_weak_assign(rest, a);
     
@@ -125,7 +153,7 @@ static int lex_front_token(const bspan* a, const asciiset *skipleading, const as
 // It is a byte comparison, assuming the first operand is at 
 // least as big as the second, and that every byte from the second
 // operand is located in sequence in the first operand.
-static bool lex_begins_with_span(const bspan * a, const bspan * b) noexcept
+static bool lex_begins_with_span(const bspan * a, const bspan * b) PC_NOEXCEPT
 {
 	size_t len = bspan_size(b);
 		
@@ -141,6 +169,136 @@ static bool lex_begins_with_span(const bspan * a, const bspan * b) noexcept
 			return false;
   	}
   	return true;
+}
+
+	// chunk_find_char
+	// Given an input chunk
+	// find the first instance of a specified character
+	// return the chunk preceding the found character
+	// or or the whole chunk of the character is not found
+	//
+	static int lex_find_char(const bspan * a, unsigned char c, bspan *rest) PC_NOEXCEPT
+	{
+		const unsigned char * start = bspan_begin(a);
+		const unsigned char * end = bspan_end(a);
+		while (start < end && *start != c)
+			++start;
+
+        bspan_init_from_pointers(rest, start, end);
+
+        return 0;
+
+	}
+
+	static int lex_find_cstr(const bspan* a, const char* cstr, bspan *rest) PC_NOEXCEPT
+	{
+		const uint8_t* start = bspan_begin(a);
+		const uint8_t* end = bspan_end(a);
+		const uint8_t* cstart = (const unsigned char*)cstr;
+		const uint8_t* cend = cstart + strlen(cstr);
+
+        bspan cspan;
+        bspan_init_from_pointers(&cspan, cstart, cend);
+
+        bspan sspan;
+
+        while (start < end)
+        {
+            bspan_init_from_pointers(&sspan, start, end);
+            if (!lex_begins_with_span(&sspan, &cspan))
+                ++start;
+        }
+
+        bspan_init_from_pointers(rest, start, end);
+
+        return 0;
+
+	}
+
+    //
+    // lex_read_quoted()
+    // 
+	// Read a quoted string from the input stream
+	// Read a first quote, then use that as the delimiter
+    // to read to the end of the string
+    //
+    // the 'dataChunk' will contain the content of what was between
+    // the quote characters.
+    //
+    static int lex_read_quoted(bspan *src, bspan *dataChunk) PC_NOEXCEPT
+    {
+        const unsigned char* beginattrValue = nullptr;
+        const unsigned char* endattrValue = nullptr;
+        unsigned char quote{};
+
+        if (!bspan_is_valid(src))
+            return -1;
+
+        // capture the quote character
+        quote = bspan_front(src);
+
+        // advance past the quote, then look for the matching close quote
+        bspan_advance(src, 1);
+        beginattrValue = bspan_begin(src);
+
+        // Skip until end of the value.
+        while (bspan_is_valid(src) && bspan_front(src) != quote)
+            bspan_advance(src,1);
+
+        if (bspan_is_valid(src))
+        {
+            endattrValue = (uint8_t*)bspan_begin(src);
+            bspan_advance(src, 1);
+        }
+
+        // Store only well formed attributes
+        bspan_init_from_pointers(dataChunk, beginattrValue, endattrValue);
+
+        return 0;
+    }
+
+// lex_read_bracketed
+//
+// This is a slightly different semantic than lex_read_quoted
+// In this case, we know the 'opening' and 'closing' that we're looking for, whereas
+// in the previous one, we don't know what the opening 'quote' character is.
+// Also, in this case, the opening and closing can be different, like '[' ']'
+//
+// Given a chunk, read the contents of the chunk until the matching close bracket is found
+// The src span is advanced past the closing bracket
+//
+static int lex_read_bracketed(bspan * src, const unsigned char lbracket, const unsigned char rbracket, bspan *dataChunk) noexcept
+{
+	const unsigned char * beginattrValue = nullptr;
+	const unsigned char * endattrValue = nullptr;
+	uint8_t quote{};
+
+	// Skip white space before the quoted bytes
+	lex_ltrim(src, wspcharset());
+
+	if (!bspan_is_valid(src) || bspan_front(src) != lbracket)
+		return -1;
+
+
+	// advance past the lbracket, then look for the matching close quote
+	bspan_advance(src, 1);
+	beginattrValue = bspan_begin(src);
+
+
+	// Skip until end of the value.
+	while (bspan_is_valid(src) && bspan_front(src) != rbracket)
+		bspan_advance(src, 1);
+
+	if (bspan_is_valid(src))
+	{
+		endattrValue = bspan_begin(src);
+		bspan_advance(src,1);
+	}
+
+	// Store only well formed quotes
+    bspan_init_from_pointers(dataChunk, beginattrValue, endattrValue);
+
+    return 0;
 }
 
 #ifdef __cplusplus

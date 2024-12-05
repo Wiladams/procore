@@ -5,23 +5,24 @@
 extern "C" {
 #endif
 
-#include <cstdint>
-static bool bhak_isLE() noexcept { int i = 1; return (int)*((unsigned char*)&i) == 1; }
-static bool bhak_isBE() noexcept { return !bhak_isLE(); }
+#include "pcoredef.h"
 
-static uint8_t BIT8(size_t bitnum) noexcept {return (uint8_t)1 << bitnum; }
-static uint16_t BIT16(size_t bitnum) noexcept {return (uint16_t)1 << bitnum; }
-static uint32_t BIT32(size_t bitnum) noexcept {return (uint32_t)1 << bitnum; }
-static uint64_t BIT64(size_t bitnum) noexcept {return (uint64_t)1 << bitnum; }
+static bool bhak_isLE() PC_NOEXCEPT_C { int i = 1; return (int)*((unsigned char*)&i) == 1; }
+static bool bhak_isBE() PC_NOEXCEPT_C { return !bhak_isLE(); }
+
+static uint8_t BIT8(size_t bitnum) PC_NOEXCEPT_C {return (uint8_t)1 << bitnum; }
+static uint16_t BIT16(size_t bitnum) PC_NOEXCEPT_C {return (uint16_t)1 << bitnum; }
+static uint32_t BIT32(size_t bitnum) PC_NOEXCEPT_C {return (uint32_t)1 << bitnum; }
+static uint64_t BIT64(size_t bitnum) PC_NOEXCEPT_C {return (uint64_t)1 << bitnum; }
 
 // return true if the specified bit is set in the value
-static bool bhak_bit_is_set(const unsigned char value, const size_t bitnum) noexcept {return (value & BIT8(bitnum)) > 0; }
+static bool bhak_bit_is_set(const unsigned char value, const size_t bitnum) PC_NOEXCEPT_C {return (value & BIT8(bitnum)) > 0; }
 
 // set a specific bit within a value
-static uint64_t bhak_set_bit(const unsigned char value, const size_t bitnum) noexcept {return (value | BIT8(bitnum));}
+static uint64_t bhak_set_bit(const unsigned char value, const size_t bitnum) PC_NOEXCEPT_C {return (value | BIT8(bitnum));}
 
 // unset a specific bit within a value
-static int bhak_unset_bit(unsigned char value, size_t bitnum) noexcept { return value & ~BIT8(bitnum);}
+static int bhak_unset_bit(unsigned char value, size_t bitnum) PC_NOEXCEPT_C { return value & ~BIT8(bitnum);}
 
 //
 // getbitbyteoffset()
@@ -29,7 +30,7 @@ static int bhak_unset_bit(unsigned char value, size_t bitnum) noexcept { return 
 // Given a bit number, calculate which byte
 // it would be in, and which bit within that
 // byte.
-static void bhak_get_byte_and_bit_offset(size_t bitnumber, size_t *byteoffset, size_t *bitoffset) noexcept
+static void bhak_get_byte_and_bit_offset(size_t bitnumber, size_t *byteoffset, size_t *bitoffset) PC_NOEXCEPT_C
 {
     *byteoffset = (int)(bitnumber / 8);
     *bitoffset = bitnumber % 8;
@@ -41,7 +42,7 @@ static void bhak_get_byte_and_bit_offset(size_t bitnumber, size_t *byteoffset, s
 //  1   bit is set to 1
 //  0   bit is set to 0
 //
-static int bhak_get_bit_value(const uint8_t *bytes, size_t nBytes, size_t bitAt)
+static int bhak_get_bit_value(const uint8_t *bytes, size_t nBytes, size_t bitAt) PC_NOEXCEPT_C
 {
     size_t byteoffset=0;
     size_t bitoffset=0;
@@ -56,7 +57,7 @@ static int bhak_get_bit_value(const uint8_t *bytes, size_t nBytes, size_t bitAt)
     return bitval;
 }
 
-static int bhak_set_bit_value(uint8_t *bytes, size_t nBytes, size_t bitAt)
+static int bhak_set_bit_value(uint8_t *bytes, size_t nBytes, size_t bitAt) PC_NOEXCEPT_C
 {
     size_t byteoffset=0;
     size_t bitoffset=0;
@@ -72,7 +73,7 @@ static int bhak_set_bit_value(uint8_t *bytes, size_t nBytes, size_t bitAt)
     return 0;
 }
 
-static int bhak_remove_bit_value(unsigned char *bytes, size_t nBytes, size_t bitAt)
+static int bhak_remove_bit_value(unsigned char *bytes, size_t nBytes, size_t bitAt) PC_NOEXCEPT_C
 {
     size_t byteoffset=0;
     size_t bitoffset=0;
