@@ -43,7 +43,7 @@ static int xml_name_namespace(const xmlname *a, bspan *nspace) PC_NOEXCEPT_C;
 
 struct xmlelement_t
 {
-    int fElementKind{ XML_ELEMENT_TYPE_INVALID };
+    int fElementKind;
     bspan fData;
     bspan fNameSpan;
     xmlname fXmlName;
@@ -100,6 +100,8 @@ static int xml_name_init(xmlname *a) PC_NOEXCEPT_C
 {
     bspan_init(&a->fName);
     bspan_init(&a->fNamespace);
+
+    return 0;
 }
 
 static int xml_name_reset(xmlname *a, const bspan * inChunk) PC_NOEXCEPT_C
@@ -146,6 +148,8 @@ static int xml_element_init(xmlelement *e) PC_NOEXCEPT_C
     bspan_init(&e->fData);
     bspan_init(&e->fNameSpan);
     xml_name_init(&e->fXmlName);
+
+    return 0;
 }
 
 // A copy constructor, or assignment operator
@@ -171,9 +175,11 @@ static int xml_element_init_from_data(xmlelement *e, int kind, const bspan * dat
     {
                 xml_element_scanNameSpan(e);
     }
+
+    return 0;
 }
 
-static int xml_element_is_valid(xmlelement *e) PC_NOEXCEPT_C
+static int xml_element_is_valid(const xmlelement *e) PC_NOEXCEPT_C
 {
     if ((nullptr == e) || (e->fElementKind == XML_ELEMENT_TYPE_INVALID))
         return 0;

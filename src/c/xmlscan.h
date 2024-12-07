@@ -13,7 +13,7 @@ extern "C" {
 // readCData()
 //============================================================
 
-static bool readCData(bspan *src, bspan * dataChunk) PC_NOEXCEPT_C
+static int xml_scan_read_cdata(bspan *src, bspan * dataChunk) PC_NOEXCEPT_C
 {
         // Skip past the ![CDATA[
         bspan_advance(src, 8);
@@ -75,9 +75,9 @@ static int xml_scan_read_entity_declaration(bspan *src, bspan *dataChunk) PC_NOE
     dataChunk = src;
 
 	// skip until we see the closing '>' character
-	src = chunk_find_char(src, '>');
+	lex_find_char(src, '>', src);
 
-    dataChunk.fEnd = src.fStart;
+    bspan_set_end(dataChunk, bspan_begin(src));
 
     // skip past that character and return
 	bspan_advance(src, 1);
@@ -100,38 +100,40 @@ static int xml_scan_read_doctype(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
 
         // Skip past the whitespace
         // to get to the beginning of things
-        src = chunk_ltrim(src, xmlwsp);
+        lex_ltrim(src, wspcharset());
 
         // Get the name of the root element
-        auto element = chunk_token(src, xmlwsp);
-        
+        bspan tok;
+        lex_front_token(src, wspcharset(), wspcharset(), &tok, src);
+
         // Trim whitespace as usual
-        src = chunk_ltrim(src, xmlwsp);
+        lex_ltrim(src, wspcharset());
         
         // If the next thing we see is a '[', then we have 
         // an 'internal' DTD.  Read to the closing ']>' and be done
-		if (*src == '[')
+		if (bspan_front(src) == '[')
 		{
 			// Skip past the opening '['
-			src++;
+            bspan_advance(src, 1);
 
 			// Find the closing ']>'
-			ByteSpan endDTD = chunk_find_cstr(src, "]>");
-			dataChunk = src;
-			dataChunk.fEnd = endDTD.fStart;
+			bspan endDTD;
+            lex_find_cstr(src, "]>", &endDTD);
+			bspan_init_from_pointers(dataChunk, src->fStart, endDTD.fStart);
 
 			// Skip past the closing ']>'
-			src.fStart = endDTD.fStart + 2;
-            return true;
+			src->fStart = endDTD.fStart + 2;
+
+            return 0;
 		}
         
         // If we've gotten here, we have an 'external' DTD
 		// It can either be a SYSTEM or PUBLIC DTD
         // First check for a PUBLIC DTD
-		if (src.startsWith("PUBLIC"))
+		if (lex_begins_with_cstr(src, "PUBLIC"))
 		{
 			// Skip past the PUBLIC
-			src += 6;
+            bspan_advance(src, 6);
 
             bspan publicId{};
 			bspan systemId{};
@@ -145,7 +147,7 @@ static int xml_scan_read_doctype(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
             lex_read_quoted(src, &systemId, src);
 
 			// Skip past the whitespace
-			src = chunk_ltrim(src, xmlwsp);
+			lex_ltrim(src, wspcharset());
 
 			// If we have a closing '>', then we're done
 			if (bspan_front(src) == '>')
@@ -175,72 +177,75 @@ static int xml_scan_read_doctype(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
                 return 0;
 			}
 		}
-		else if (src.startsWith("SYSTEM"))
+		else if (lex_begins_with_cstr(src, "SYSTEM"))
 		{
 			// Skip past the SYSTEM
-			src += 6;
+            bspan_advance(src, 6);
 
-            ByteSpan systemId{};
-			readQuoted(src, systemId);
+            bspan systemId;
+
+			lex_read_quoted(src, &systemId, src);
 
 			// Skip past the whitespace
-			src = chunk_ltrim(src, xmlwsp);
+			lex_ltrim(src, wspcharset());
 
 			// If we have a closing '>', then we're done
-			if (*src == '>')
+			if (bspan_front(src) == '>')
 			{
-				src++;
+                bspan_advance(src, 1);
+
 				return true;
 			}
 
 			// If we have an opening '[', then we have more to parse
-			if (*src == '[')
+			if (bspan_front(src) == '[')
 			{
 				// Skip past the opening '['
-				src++;
+                bspan_advance(src, 1);
 
 				// Find the closing ']>'
-				ByteSpan endDTD = chunk_find_cstr(src, "]>");
-				dataChunk = src;
-				dataChunk.fEnd = endDTD.fStart;
+				bspan endDTD;
+                lex_find_cstr(src, "]>", &endDTD);
+                bspan_init_from_pointers(dataChunk, bspan_begin(src), bspan_begin(&endDTD));
 
 				// Skip past the closing ']>'
-				src.fStart = endDTD.fStart + 2;
-				return true;
+				src->fStart = endDTD.fStart + 2;
+				
+                return 0;
 			}
 		}
 
-		// We have an invalid DTD
-		return false;
-    }
+	// We have an invalid DTD
+	return -1;
+}
     
 //============================================================
 // readTag()
 //============================================================
 static int xml_scan_read_tag(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
 {
-        const unsigned char* srcPtr = src.fStart;
-		const unsigned char* endPtr = src.fEnd;
+    const unsigned char* srcPtr = bspan_begin(src);
+	const unsigned char* endPtr = bspan_end(src);
         
-        dataChunk = src;
-        dataChunk.fEnd = src.fStart;
+    bspan_init_from_pointers(dataChunk, bspan_begin(src), bspan_begin(src));
 
-		while ((srcPtr < endPtr) && (*srcPtr != '>'))
-			srcPtr++;
+    // BUGBUG - should be lex_find_char()
+	while ((srcPtr < endPtr) && (*srcPtr != '>'))
+		srcPtr++;
         
-		// if we get to the end of the input, before seeing the closing '>'
-        // the we return false, indicating we did not read
-        if (srcPtr == endPtr)
-			return false;
+	// if we get to the end of the input, before seeing the closing '>'
+    // the we return false, indicating we did not read
+    if (srcPtr == endPtr)
+		return false;
         
-        // we did see the closing, so capture the name into 
-        // the data chunk, and trim whitespace off the end.
-        dataChunk.fEnd = srcPtr;
-        lex_rtrim(dataChunk, wspcharset());
+    // we did see the closing, so capture the name into 
+    // the data chunk, and trim whitespace off the end.
+    bspan_set_end(dataChunk, srcPtr);
+    lex_rtrim(dataChunk, wspcharset());
 
-        // move past the '>'
-        srcPtr++;
-        src.fStart = srcPtr;
+    // move past the '>'
+    srcPtr++;
+    bspan_set_begin(src, srcPtr);
 
 
     return 0;
@@ -289,6 +294,20 @@ static int xml_iter_state_init(xmliteratorstate *s) PC_NOEXCEPT_C
     return 0;
 }
 
+static int xml_iter_state_init_from_source(xmliteratorstate *s, bspan *src) PC_NOEXCEPT_C
+{
+    xml_iter_state_init(s);
+    bspan_weak_assign(&s->fSource, src);
+    bspan_weak_assign(&s->fMark, src);
+
+    return 0;
+}
+
+static int xml_iter_is_valid(xmliteratorstate *s)
+{
+    return bspan_is_valid(&s->fSource);
+}
+
 static int xml_iter_params_init(xmliterparams *p) PC_NOEXCEPT_C
 {
     p->fSkipComments = true;
@@ -305,7 +324,7 @@ static int xml_iter_params_init(xmliterparams *p) PC_NOEXCEPT_C
 static int xml_iter_next_element(const xmliterparams * params, xmliteratorstate * st, xmlelement *elem) PC_NOEXCEPT_C
 {
         
-    while (bspan_is_valid(&st->fSource))
+    while (xml_iter_is_valid(st))
     {
         switch (st->fState)
         {
@@ -357,49 +376,50 @@ static int xml_iter_next_element(const xmliterparams * params, xmliteratorstate 
                 bspan elementChunk;
                 bspan_init_from_pointers(&elementChunk, bspan_begin(&st->fSource), bspan_begin(&st->fSource));
 
-                if (st.fSource.startsWith("?xml"))
+                if (lex_begins_with_cstr(&st->fSource,"?xml"))
                 {
                     kind = XML_ELEMENT_TYPE_XMLDECL;
-                    readTag(st.fSource, elementChunk);
+                    xml_scan_read_tag(&st->fSource, &elementChunk);
                 }
-                else if (st.fSource.startsWith("?"))
+                else if (lex_begins_with_cstr(&st->fSource,"?"))
                 {
                     kind = XML_ELEMENT_TYPE_PROCESSING_INSTRUCTION;
-                    readTag(st.fSource, elementChunk);
+                    xml_scan_read_tag(&st->fSource, &elementChunk);
                 }
-                else if (st.fSource.startsWith("!DOCTYPE"))
+                else if (lex_begins_with_cstr(&st->fSource,"!DOCTYPE"))
                 {
                     kind = XML_ELEMENT_TYPE_DOCTYPE;
-                    readDoctype(st.fSource, elementChunk);
+                    xml_scan_read_doctype(&st->fSource, &elementChunk);
                 }
-                else if (st.fSource.startsWith("!--"))
+                else if (lex_begins_with_cstr(&st->fSource,"!--"))
                 {
                     kind = XML_ELEMENT_TYPE_COMMENT;
-                    readComment(st.fSource, elementChunk);
+                    xml_scan_read_comment(&st->fSource, &elementChunk);
                 }
-                else if (st.fSource.startsWith("![CDATA["))
+                else if (lex_begins_with_cstr(&st->fSource,"![CDATA["))
                 {
                     kind = XML_ELEMENT_TYPE_CDATA;
-                    readCData(st.fSource, elementChunk);
+                    xml_scan_read_cdata(&st->fSource, &elementChunk);
                 }
-                else if (st.fSource.startsWith("!ENTITY"))
+                else if (lex_begins_with_cstr(&st->fSource,"!ENTITY"))
                 {
                     kind = XML_ELEMENT_TYPE_ENTITY;
-                    readEntityDeclaration(st.fSource, elementChunk);
+                    xml_scan_read_entity_declaration(&st->fSource, &elementChunk);
                 }
-                else if (st.fSource.startsWith("/"))
+                else if (lex_begins_with_cstr(&st->fSource,"/"))
                 {
                     kind = XML_ELEMENT_TYPE_END_TAG;
-                    readTag(st.fSource, elementChunk);
+                    xml_scan_read_tag(&st->fSource, &elementChunk);
                 }
                 else {
-                    readTag(st.fSource, elementChunk);
-                    if (chunk_ends_with_char(elementChunk, '/'))
+                    xml_scan_read_tag(&st->fSource, &elementChunk);
+                    if (bspan_back(&elementChunk) == '/')
                         kind = XML_ELEMENT_TYPE_SELF_CLOSING;
                 }
 
                 st->fState = XML_ITERATOR_STATE_CONTENT;
-                st.fMark = st.fSource;
+                
+                bspan_weak_assign(&st->fMark, &st->fSource);
 
                 xml_element_init_from_data(elem, kind, &elementChunk);
 
@@ -415,13 +435,14 @@ static int xml_iter_next_element(const xmliterparams * params, xmliteratorstate 
         }
     }
         
-    return 0;
+    return -1;
 }
     
 #ifdef __cplusplus
 }
 #endif
 
+/*
 namespace pcore {
     // XmlElementIterator
     // scans XML generating a sequence of XmlElements
@@ -480,7 +501,7 @@ namespace pcore {
         }
     };
 }   // namespace pcore
-
+*/
 
 
 #endif  // XMLSCAN_H_INCLUDED

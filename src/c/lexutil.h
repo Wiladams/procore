@@ -22,6 +22,8 @@ static int lex_rtrim(bspan* a, const asciiset * skippable) PC_NOEXCEPT_C;
 static int lex_trim(bspan* a, const asciiset * skippable) PC_NOEXCEPT_C;
 
 static bool lex_begins_with_span(const bspan * a, const bspan * b) PC_NOEXCEPT_C;
+static bool lex_begins_with_cstr(const bspan * a, const char *) PC_NOEXCEPT_C;
+
 static int lex_read_quoted(const bspan *src, bspan *dataChunk, bspan *rest) PC_NOEXCEPT_C;
 
 
@@ -50,15 +52,21 @@ static int lex_skip_trailing_charset(const bspan* a, const asciiset *skippable, 
         return -1;
 
     bspan_weak_assign(b, a);
-    unsigned char *endAt = (unsigned char *)b->fEnd-1;
+    const unsigned char *endAt = bspan_end(b);
+
     while (endAt > b->fStart){
+        endAt--;
         if (asciiset_contains_char(skippable, *endAt))
-            endAt--;
-        else
-            break;
+            continue;
+
+        if (endAt > b->fStart) {
+            endAt++;
+        }
+
+        bspan_set_end(b, endAt);    
+        
+        return 0;
     }
-    if (endAt != b->fStart)
-        b->fEnd = endAt;
 
     return 0;
 }
@@ -170,6 +178,15 @@ static bool lex_begins_with_span(const bspan * a, const bspan * b) PC_NOEXCEPT_C
   	}
   	return true;
 }
+
+static bool lex_begins_with_cstr(const bspan *a, const char *cstr) PC_NOEXCEPT_C
+{
+    bspan cspan;
+    bspan_init_from_cstr(&cspan, cstr);
+
+    return lex_begins_with_span(a, &cspan);
+}
+
 
 	// chunk_find_char
 	// Given an input chunk
