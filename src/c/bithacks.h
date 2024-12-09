@@ -89,7 +89,21 @@ static int bhak_remove_bit_value(unsigned char *bytes, size_t nBytes, size_t bit
     return 0;
 }
 
+// bhak_sign_extend_u16
+// Take a smaller negative number, and sign extend
+// to 16 bits
+static uint16_t bhak_sign_extend_u16(uint16_t x, int bit_count) PC_NOEXCEPT_C
+{
+    if ((x >> (bit_count - 1)) & 1) {
+        x |= (0xFFFF << bit_count);
+    }
+    return x;
+}
 
+static int64_t bhak_sign_extend_u64(uint64_t val, int bit_count) PC_NOEXCEPT_C
+{
+    return ((int64_t)(val << (64 - bit_count))) >> (64 - bit_count);
+}
 
 #ifdef __cplusplus
 }
