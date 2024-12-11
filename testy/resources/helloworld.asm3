@@ -1,0 +1,7 @@
+origin 4x3000	segment                        ; this is the address in memory where the program will be loaded
+lea r0, hello_str                  ; load the address of the hello_str string into r0
+trap 4x22                               ; output the string pointed to by r0 to the console
+trap 4x25                               ; halt the program
+hello_str: data2[] "Hello World!",0  ; store this string here in the program
+  
+

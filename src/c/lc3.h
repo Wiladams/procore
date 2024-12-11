@@ -16,7 +16,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
-
+#include <conio.h>
 
 #include "pcoredef.h"
 #include "bithacks.h"
@@ -106,8 +106,8 @@ enum { PC_START = 0x3000 };
 #define BR(i) (((i)>>6)&0x7)
 #define TRP(i) ((i)&0xFF)
 
-typedef void (*lc3_loop_f)(void *, uint16_t instr);            // callback function for looping
-
+typedef int (*lc3_loop_f)(void *, uint16_t instr);            // callback function for looping
+typedef int (*lc3_check_key_f)();
 
 struct lc3vm_t
 {
@@ -117,10 +117,15 @@ struct lc3vm_t
     uint16_t reg[R_COUNT];
     int running;
 
-    lc3_loop_f  fLoopFun;
+
+
     int hasNewKey;
     uint16_t newKey;
+
+    lc3_loop_f  fLoopFun;
+    lc3_check_key_f fCheckKey;
 };
+
 typedef struct lc3vm_t lc3vm;
 
 typedef int (*op_ex_f)(lc3vm*, uint16_t i);     // function pointer for operator
@@ -128,9 +133,7 @@ typedef int (*trp_ex_f)(lc3vm *);                     // function pointer for tr
 
 int lc3_vm_init(lc3vm *vm) PC_NOEXCEPT_C;
 
-// Console IO
-//static int lc3_check_key()PC_NOEXCEPT_C;
-//static uint16_t lc3_getchar()PC_NOEXCEPT_C;
+
 
 static void lc3_vm_mem_write(lc3vm *vm, uint16_t address, uint16_t val) PC_NOEXCEPT_C;
 static uint16_t lc3_vm_mem_read(lc3vm *vm, uint16_t address) PC_NOEXCEPT_C;
@@ -139,16 +142,16 @@ static int lc3_update_flags(lc3vm *vm, uint16_t r) PC_NOEXCEPT_C;
 
 
 // Implementation
-    // since exactly one condition flag should be set at any given time, set the Z flag
-    //vm->reg[R_COND] = FL_ZRO;
 
-    // set the PC to starting position 
-    // 0x3000 is the default
-    //enum { PC_START = 0x3000 };
-    //vm->reg[R_PC] = PC_START;
+
+
+
+
+// Initialize a new vm structure
 int lc3_vm_init(lc3vm *vm) PC_NOEXCEPT_C
 {
     vm->fLoopFun = nullptr;
+    vm->fCheckKey = nullptr;
 
     vm->running = 0;
     vm->reg[R_COND] = FL_ZRO;
@@ -160,6 +163,13 @@ int lc3_vm_init(lc3vm *vm) PC_NOEXCEPT_C
     return 0;
 }
 
+int lc3_vm_set_checkkey(lc3vm *vm, lc3_check_key_f fCheckKey)
+{
+    vm->fCheckKey = fCheckKey;
+    return 0;
+}
+
+/*
 static int lc3_check_key(lc3vm *vm) PC_NOEXCEPT_C
 {
     if (vm->hasNewKey)
@@ -186,6 +196,7 @@ static int lc3_vm_inject_key(lc3vm *vm, uint16_t c)
 
     return 0;
 }
+*/
 
 static void lc3_vm_mem_write(lc3vm *vm, uint16_t address, uint16_t val) PC_NOEXCEPT_C
 {
@@ -199,10 +210,10 @@ static uint16_t lc3_vm_mem_read(lc3vm *vm, uint16_t address) PC_NOEXCEPT_C
     {
         //printf("READING MR_KBSR\n");
 
-        if (lc3_check_key(vm))
+        if (vm->fCheckKey != nullptr && vm->fCheckKey())
         {
             vm->memory[MR_KBSR] = (1 << 15);
-            vm->memory[MR_KBDR] = lc3_getchar(vm);
+            vm->memory[MR_KBDR] = getchar();
         }
         else
         {
@@ -407,8 +418,8 @@ static int lc3_trap_out(lc3vm *vm) PC_NOEXCEPT_C
 
 static int lc3_trap_in(lc3vm *vm) PC_NOEXCEPT_C
 {
-    printf("trap_in\n");
-    fflush(stdout);
+    //printf("trap_in\n");
+    //fflush(stdout);
 
     vm->reg[R_R0] = getchar(); 
     lc3_update_flags(vm, R_R0);
@@ -518,6 +529,7 @@ static int lc3_vm_step(lc3vm *vm) PC_NOEXCEPT_C
 
     op_ex[OPC(instr)](vm, instr);
 
+    return 0;
 }
 
 static int lc3_vm_exec(lc3vm * vm) PC_NOEXCEPT_C
@@ -531,6 +543,8 @@ static int lc3_vm_exec(lc3vm * vm) PC_NOEXCEPT_C
     vm->running = 1;
     while (vm->running)
     {
+        //printf("lc3_vm_exec: %d\n", vm->reg[R_PC]);
+
         lc3_vm_step(vm);
     }
 
