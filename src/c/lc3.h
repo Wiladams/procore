@@ -10,6 +10,7 @@
 //
 // Small tight implementation
 // https://github.com/nomemory/lc3-vm/blob/main/vm.c
+// https://www.rodrigoaraujo.me/posts/lets-build-an-lc-3-virtual-machine/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -169,6 +170,12 @@ int lc3_vm_set_checkkey(lc3vm *vm, lc3_check_key_f fCheckKey)
     return 0;
 }
 
+int lc3_vm_set_loopHook(lc3vm *vm, lc3_loop_f loopHook)
+{
+    vm->fLoopFun = loopHook;
+    return 0;
+}
+
 /*
 static int lc3_check_key(lc3vm *vm) PC_NOEXCEPT_C
 {
@@ -319,6 +326,7 @@ static int lc3_op_jmp(lc3vm *vm, uint16_t instr) PC_NOEXCEPT_C
 static int lc3_op_jsr(lc3vm *vm, uint16_t instr) PC_NOEXCEPT_C
 {
     vm->reg[R_R7] = vm->reg[R_PC];
+
     if (FL(instr))
     {
         vm->reg[R_PC] += POFF11(instr);  // JSR
@@ -517,14 +525,14 @@ static int lc3_vm_step(lc3vm *vm) PC_NOEXCEPT_C
         lc3_op_rti, lc3_op_not, lc3_op_ldi, lc3_op_sti, 
         lc3_op_jmp, lc3_op_res, lc3_op_lea, lc3_op_trap };
 
-    uint16_t instr = lc3_vm_mem_read(vm, vm->reg[R_PC]++);
-
-    //fprintf(stdout, "VM WHILE OP: %d\n", OPC(instr));
-    //fflush(stdout);
+    uint16_t instr = lc3_vm_mem_read(vm, vm->reg[R_PC]);
+    // Explicitly increment the PC
+    vm->reg[R_PC]++;
     
     if (vm->fLoopFun != nullptr)
     {
-        vm->fLoopFun(vm, instr);
+        if (vm->fLoopFun(vm, instr) != 0);
+            return -1;
     }
 
     op_ex[OPC(instr)](vm, instr);
@@ -534,18 +542,14 @@ static int lc3_vm_step(lc3vm *vm) PC_NOEXCEPT_C
 
 static int lc3_vm_exec(lc3vm * vm) PC_NOEXCEPT_C
 {
-    static op_ex_f op_ex[OP_COUNT] = { 
-        lc3_op_br, lc3_op_add, lc3_op_ld, lc3_op_st, 
-        lc3_op_jsr, lc3_op_and, lc3_op_ldr, lc3_op_str, 
-        lc3_op_rti, lc3_op_not, lc3_op_ldi, lc3_op_sti, 
-        lc3_op_jmp, lc3_op_res, lc3_op_lea, lc3_op_trap };
-
     vm->running = 1;
     while (vm->running)
     {
         //printf("lc3_vm_exec: %d\n", vm->reg[R_PC]);
 
-        lc3_vm_step(vm);
+        if (lc3_vm_step(vm) != 0)
+            break;
+
     }
 
     return 0;

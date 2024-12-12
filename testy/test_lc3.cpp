@@ -25,7 +25,7 @@ int onVMLoop(void *ptr, uint16_t instr)
     //fflush(stdout);
 
     lc3vm *vm = (lc3vm *)ptr;
-
+/*
     //lc3_vm_inject_key(vm, 'y');
     //return 0;
     
@@ -54,8 +54,8 @@ int onVMLoop(void *ptr, uint16_t instr)
             return 0;
         }
     }
-    printf("\n");
-
+    //printf("\n");
+*/
     return 0;
 }
 
@@ -107,8 +107,7 @@ void test_lc3_core(bspan &fspan)
     lc3vm vm;
     lc3_vm_init(&vm);
     lc3_vm_set_checkkey(&vm, check_key);
-    //vm.fCheckKey = check_key;
-    //vm.fLoopFun = onVMLoop;
+    //lc3_vm_set_loopHook(&vm, onVMLoop);
 
     lc3_load_image_span(&vm, &fspan);
 
