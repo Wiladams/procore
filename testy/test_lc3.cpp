@@ -9,8 +9,7 @@
 using namespace pcore;
 
 uint8_t keyStates[256]{};
-int keyCode = 0;
-int keyChar = 0;
+
 
 //
 UINT getVChar(unsigned char vkey)
@@ -19,45 +18,7 @@ UINT getVChar(unsigned char vkey)
     return charCode;
 }
 
-int onVMLoop(void *ptr, uint16_t instr)
-{
-    //fprintf(stdout, "onVMLoop \n");
-    //fflush(stdout);
 
-    lc3vm *vm = (lc3vm *)ptr;
-/*
-    //lc3_vm_inject_key(vm, 'y');
-    //return 0;
-    
-    // check keystate, and inject character
-    // if there is one
-    //::GetAsyncKeyState(vKey);
-    memset(keyStates, 0, sizeof(keyStates));
-
-    ::GetKeyboardState(keyStates);
-
-    // Figure out which keys are characters or not
-    // and return the first one that says it is pressed
-    for (int i=0;i<256;i++)
-    {
-        // If it's not convertible to a character
-        // then just continue the loop
-        unsigned char vChar = getVChar(i);
-        if (vChar == 0) continue;
-
-        //fprintf(stdout, "%c ", vChar);
-        //fflush(stdout);
-
-        // high order bit indicates key is pressed
-        if (keyStates[i]&0x80) {
-            //lc3_vm_inject_key(vm, vChar);
-            return 0;
-        }
-    }
-    //printf("\n");
-*/
-    return 0;
-}
 
 // Console IO
 // In order to use the console IO routines effectively, we need
@@ -89,7 +50,7 @@ static void restore_input_buffering() PC_NOEXCEPT_C
 
 static int check_key() PC_NOEXCEPT_C
 {
-    return ::WaitForSingleObject(GetStdHandle(STD_INPUT_HANDLE), 1000) == WAIT_OBJECT_0 && _kbhit();
+    return (::WaitForSingleObject(GetStdHandle(STD_INPUT_HANDLE), 1000) == WAIT_OBJECT_0) && _kbhit();
 }
 
 void handle_interrupt(int signal)
@@ -98,6 +59,20 @@ void handle_interrupt(int signal)
     printf("\n");
     exit(-2);
 }
+
+void onVMLoop(lc3vm* vm)
+{
+    int keyCode = 0;
+    int keyChar = 0;
+
+    if (check_key())
+    {
+        keyCode = _getch();
+        keyChar = getVChar(keyCode);
+        lc3_vm_inject_key(vm, keyChar);
+    }
+}
+
 
 
 void test_lc3_core(bspan &fspan)
@@ -111,7 +86,7 @@ void test_lc3_core(bspan &fspan)
 
     lc3_load_image_span(&vm, &fspan);
 
-    lc3_vm_exec(&vm);
+    lc3_vm_run(&vm);
 }
 
 

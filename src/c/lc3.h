@@ -123,7 +123,7 @@ struct lc3vm_t
     int hasNewKey;
     uint16_t newKey;
 
-    lc3_loop_f  fLoopFun;
+    lc3_loop_f  fLoopHook;
     lc3_check_key_f fCheckKey;
 };
 
@@ -143,15 +143,10 @@ static int lc3_update_flags(lc3vm *vm, uint16_t r) PC_NOEXCEPT_C;
 
 
 // Implementation
-
-
-
-
-
 // Initialize a new vm structure
 int lc3_vm_init(lc3vm *vm) PC_NOEXCEPT_C
 {
-    vm->fLoopFun = nullptr;
+    vm->fLoopHook = nullptr;
     vm->fCheckKey = nullptr;
 
     vm->running = 0;
@@ -172,7 +167,7 @@ int lc3_vm_set_checkkey(lc3vm *vm, lc3_check_key_f fCheckKey)
 
 int lc3_vm_set_loopHook(lc3vm *vm, lc3_loop_f loopHook)
 {
-    vm->fLoopFun = loopHook;
+    vm->fLoopHook = loopHook;
     return 0;
 }
 
@@ -192,6 +187,7 @@ static uint16_t lc3_getchar(lc3vm *vm) PC_NOEXCEPT_C
 {
     return vm->newKey;
 }
+*/
 
 static int lc3_vm_inject_key(lc3vm *vm, uint16_t c)
 {
@@ -203,7 +199,7 @@ static int lc3_vm_inject_key(lc3vm *vm, uint16_t c)
 
     return 0;
 }
-*/
+
 
 static void lc3_vm_mem_write(lc3vm *vm, uint16_t address, uint16_t val) PC_NOEXCEPT_C
 {
@@ -519,6 +515,7 @@ static int lc3_op_trap(lc3vm *vm, uint16_t instr) PC_NOEXCEPT_C
 //
 static int lc3_vm_step(lc3vm *vm) PC_NOEXCEPT_C
 {
+    // Table of operator functions, indexed by opcode
     static op_ex_f op_ex[OP_COUNT] = { 
         lc3_op_br, lc3_op_add, lc3_op_ld, lc3_op_st, 
         lc3_op_jsr, lc3_op_and, lc3_op_ldr, lc3_op_str, 
@@ -529,27 +526,29 @@ static int lc3_vm_step(lc3vm *vm) PC_NOEXCEPT_C
     // Explicitly increment the PC
     vm->reg[R_PC]++;
     
-    if (vm->fLoopFun != nullptr)
+    // We call out to the loop hook first, to give
+    // it a chance to determine whether we should continue
+    // or not.  If it returns '0', we continue, otherwise
+    // we return with an error of our own.
+    if (vm->fLoopHook != nullptr)
     {
-        if (vm->fLoopFun(vm, instr) != 0);
+        if (vm->fLoopHook(vm, instr) != 0);
             return -1;
     }
 
+    // Perform the actual operation
     op_ex[OPC(instr)](vm, instr);
 
     return 0;
 }
 
-static int lc3_vm_exec(lc3vm * vm) PC_NOEXCEPT_C
+static int lc3_vm_run(lc3vm * vm) PC_NOEXCEPT_C
 {
     vm->running = 1;
     while (vm->running)
     {
-        //printf("lc3_vm_exec: %d\n", vm->reg[R_PC]);
-
         if (lc3_vm_step(vm) != 0)
             break;
-
     }
 
     return 0;

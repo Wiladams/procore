@@ -5,7 +5,7 @@
 
 #include "bspan.h"
 
-//using namespace pcore;
+
 
 static void writeSpan(const bspan &bs)
 {
