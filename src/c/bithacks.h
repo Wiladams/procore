@@ -7,8 +7,8 @@ extern "C" {
 
 #include "pcoredef.h"
 
-static bool bhak_isLE() PC_NOEXCEPT_C { int i = 1; return (int)*((unsigned char*)&i) == 1; }
-static bool bhak_isBE() PC_NOEXCEPT_C { return !bhak_isLE(); }
+static INLINE bool bhak_isLE() PC_NOEXCEPT_C { int i = 1; return (int)*((unsigned char*)&i) == 1; }
+static INLINE bool bhak_isBE() PC_NOEXCEPT_C { return !bhak_isLE(); }
 
 static uint8_t BIT8(size_t bitnum) PC_NOEXCEPT_C {return (uint8_t)1 << bitnum; }
 static uint16_t BIT16(size_t bitnum) PC_NOEXCEPT_C {return (uint16_t)1 << bitnum; }

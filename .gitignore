@@ -30,3 +30,10 @@
 *.exe
 *.out
 *.app
+testy/test_lc3/x64/Debug/test_lc3.Build.CppClean.log
+testy/test_lc3/x64/Debug/test_lc3.log
+*.log
+testy/.vs/testy/v17/Solution.VC.db
+*.ipch
+testy/.vs/testy/v17/Browse.VC.db
+*.vsidx

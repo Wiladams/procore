@@ -4,13 +4,20 @@
 
 // Implementatioin of a LC-3 virtual machine
 // There are many examples in many languages
+// this particular implementation is a learning experience, so although
+// it can be used to actually run programs, it is not optimized for anything
+// in particular.
 //
 // Nice Tutorial
 // https://www.jmeiners.com/lc3-vm/
 //
-// Small tight implementation
+// Small tight implementations
 // https://github.com/nomemory/lc3-vm/blob/main/vm.c
 // https://www.rodrigoaraujo.me/posts/lets-build-an-lc-3-virtual-machine/
+// 
+// https://github.com/zserge/lc3-forth
+// https://zserge.com/posts/post-apocalyptic-programming/
+//
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +41,8 @@ typedef uint16_t lc3_instr;
 enum { R0 = _R(0), R1 = _R(1), R2 = _R(2), R3 = _R(3), R4 = _R(4), R5 = _R(5), R6 = _R(6), R7 = _R(7) };
 #define R_COUNT 8
 
+
+
 /*
 enum LC3_REGISTER
 {
@@ -49,6 +58,7 @@ enum LC3_REGISTER
 };
 */
 
+/*
 // Instruction opcodes
 enum LC3_OPCODE
 {
@@ -70,6 +80,7 @@ enum LC3_OPCODE
     OP_TRAP = 0b1111,   // execute trap 
     OP_COUNT    // number of operators (16)
 };
+*/
 
 enum LC3_CONDITION_FLAGS
 {
@@ -99,6 +110,13 @@ enum LC3_MEM_MAP
 #define LC3_MEMORY_MAX (1 << 16)
 enum { PC_START = 0x3000 };
 
+static INLINE int lc3_sext(int x, int bits) 
+{
+	int m = (1 << (bits - 1));
+	int n = x & ((1 << bits) - 1);
+	return (n ^ m) - m;
+}
+
 // Some macros to decode instructions
 #define OPC(i) ((i)>>12)
 #define DR(i) (((i)>>9)&0x7)
@@ -106,11 +124,11 @@ enum { PC_START = 0x3000 };
 #define SR2(i) ((i)&0x7)
 #define FIMM(i) ((i>>5)&01)
 #define IMM(i) ((i)&0x1F)
-#define SEXTIMM(i) bhak_sign_extend_u16(IMM(i),5)
+#define SEXTIMM(i) lc3_sext(IMM(i),5)
 #define FCND(i) (((i)>>9)&0x7)
-#define POFF(i) bhak_sign_extend_u16((i)&0x3F, 6)
-#define POFF9(i) bhak_sign_extend_u16((i)&0x1FF, 9)
-#define POFF11(i) bhak_sign_extend_u16((i)&0x7FF, 11)
+#define POFF(i) lc3_sext((i)&0x3F, 6)
+#define POFF9(i) lc3_sext((i)&0x1FF, 9)
+#define POFF11(i) lc3_sext((i)&0x7FF, 11)
 #define FL(i) (((i)>>11)&1)
 #define BRF(i) (((i)>>6)&0x7)
 #define TRP(i) ((i)&0xFF)
@@ -124,7 +142,7 @@ struct lc3vm_t
     uint16_t pc;    // program counter
     uint16_t cflags;// COND - conditional flags
     uint16_t reg[R_COUNT];              // Storage for the registers
-    uint16_t memory[LC3_MEMORY_MAX];    // Main Memory; 65536 uint16_t locations, 128K bytes
+    uint16_t mem[LC3_MEMORY_MAX];    // Main Memory; 65536 uint16_t locations, 128K bytes
 
 
 
@@ -173,7 +191,7 @@ static int lc3_trap_outu16(lc3vm *vm) PC_NOEXCEPT_C;
 int lc3_vm_init(lc3vm *vm) PC_NOEXCEPT_C
 {
     // Clear out the memory
-    memset(vm->memory, 0, sizeof(vm->memory));
+    memset(vm->mem, 0, sizeof(vm->mem));
 
     vm->cflags = FL_ZERO;  // conditional flags zero
     vm->pc = PC_START;   // starting program counter
@@ -265,7 +283,7 @@ static int lc3_vm_inject_key(lc3vm *vm, uint16_t c)
 
 static void lc3_vm_mem_write(lc3vm *vm, uint16_t address, uint16_t val) PC_NOEXCEPT_C
 {
-    vm->memory[address] = val;
+    vm->mem[address] = val;
 }
 
 static uint16_t lc3_vm_mem_read(lc3vm *vm, uint16_t address) PC_NOEXCEPT_C
@@ -277,16 +295,16 @@ static uint16_t lc3_vm_mem_read(lc3vm *vm, uint16_t address) PC_NOEXCEPT_C
 
         if (vm->fCheckKey != nullptr && vm->fCheckKey())
         {
-            vm->memory[MR_KBSR] = (1 << 15);
-            vm->memory[MR_KBDR] = getchar();
+            vm->mem[MR_KBSR] = (1 << 15);
+            vm->mem[MR_KBDR] = getchar();
         }
         else
         {
-            vm->memory[MR_KBSR] = 0;
+            vm->mem[MR_KBSR] = 0;
         }
     }
     
-    return vm->memory[address];
+    return vm->mem[address];
 }
 
 static int lc3_update_flags(lc3vm *vm, uint16_t r) PC_NOEXCEPT_C
@@ -499,7 +517,7 @@ static INLINE int lc3_trap_in(lc3vm *vm) PC_NOEXCEPT_C
 static int lc3_trap_puts(lc3vm *vm) PC_NOEXCEPT_C
 {
     // one char per word
-    uint16_t* c = vm->memory + vm->reg[NR(R0)];
+    uint16_t* c = vm->mem + vm->reg[NR(R0)];
     while (*c)
     {
         putc((char)*c, stdout);
@@ -516,7 +534,7 @@ static int lc3_trap_putsp(lc3vm *vm) PC_NOEXCEPT_C
     // one char per byte (two bytes per word)
     // here we need to swap back to
     // big endian format
-    uint16_t* c = vm->memory + vm->reg[NR(R0)];
+    uint16_t* c = vm->mem + vm->reg[NR(R0)];
     while (*c)
     {
         char char1 = (*c) & 0xFF;
@@ -605,7 +623,7 @@ static int lc3_op_trap(lc3vm *vm, uint16_t instr) PC_NOEXCEPT_C
 static int lc3_vm_step(lc3vm *vm) PC_NOEXCEPT_C
 {
     // Table of operator functions, indexed by opcode
-    static op_ex_f op_ex[OP_COUNT] = { 
+    static op_ex_f op_ex[] = { 
         lc3_op_br, lc3_op_add, lc3_op_ld, lc3_op_st, 
         lc3_op_jsr, lc3_op_and, lc3_op_ldr, lc3_op_str, 
         lc3_op_rti, lc3_op_not, lc3_op_ldi, lc3_op_sti, 
@@ -631,17 +649,7 @@ static int lc3_vm_step(lc3vm *vm) PC_NOEXCEPT_C
     return 0;
 }
 
-static int lc3_vm_run(lc3vm * vm) PC_NOEXCEPT_C
-{
-    vm->running = 1;
-    while (vm->running)
-    {
-        if (lc3_vm_step(vm) != 0)
-            break;
-    }
 
-    return 0;
-}
 
 //
 // lc3 programs are encoded as 'big-endian', so depending
@@ -658,11 +666,12 @@ static int lc3_load_image_span(lc3vm *vm, bspan * file)
     // memory the program wants to be loaded into.
     uint16_t origin = as_u16_be(bspan_begin(&src));
     bspan_advance(&src, 2);
-
+    vm->pc = origin;
+    
     // We know how many bytes we have left in the span
     // And we know where we want to start reading,
     // so read each u16 into the proper location
-    uint16_t* p = vm->memory + origin;
+    uint16_t* p = vm->mem + origin;
 
     // We read one value at a time, ensuring it has the
     // correct endianness in memory
@@ -675,6 +684,67 @@ static int lc3_load_image_span(lc3vm *vm, bspan * file)
 
     return 0;
 }
+
+
+// Super minimal execution environment
+// assumes origin is 0x3000
+//
+// LC-3 Virtual Machine
+//
+
+static INLINE int flags(int x) { return (x < 0) * 4 + (x == 0) * 2 + (x > 0); }
+
+static INLINE int lc3_oneop(lc3vm *vm) 
+{
+
+
+#define OP(_hint, code, body) case code: body; return vm->pc;
+#define CC(x) vm->cflags = flags(x)
+
+    int op = vm->mem[vm->pc];
+    int x = DR(op);     // (op >> 9) & 7;
+    int y = SR1(op);    // (op >> 6) & 7;
+    int z = (op & 0x3f);
+  
+    vm->pc++;
+  
+    uint8_t opcode = OPC(op);
+    
+    switch (opcode)
+    {
+        OP(BR,   0, vm->pc += (vm->cflags & x) ? lc3_sext(op, 9) : 0)
+        OP(ADD,  1, CC(vm->reg[x] = vm->reg[y] + ((z & 0x20) ? lc3_sext(op, 5) : vm->reg[z])))
+        OP(LD,   2, CC(vm->reg[x] = vm->mem[vm->pc + lc3_sext(op, 9)]))
+        OP(ST,   3, vm->mem[vm->pc + lc3_sext(op, 9)] = vm->reg[x]);
+        OP(JSR,  4, (vm->reg[7] = vm->pc, vm->pc = vm->pc + lc3_sext(op, 9)))
+		OP(AND,  5, CC(vm->reg[x] = vm->reg[y] & ((z & 0x20) ? lc3_sext(op, 5) : vm->reg[z])));
+		OP(LDR,  6, CC(vm->reg[x] = vm->mem[vm->reg[y] + lc3_sext(op, 6)]));
+		OP(STR,  7, vm->mem[vm->reg[y] + lc3_sext(op, 6)] = vm->reg[x]);
+		OP(NOT,  9, CC(vm->reg[x] = ~vm->reg[y]));
+		OP(LDI, 10, CC(vm->reg[x] = vm->mem[vm->mem[vm->pc + lc3_sext(op, 9)]]));
+		OP(STI, 11, vm->mem[vm->mem[vm->pc + lc3_sext(op, 9)]] = vm->reg[x]);
+		OP(JMP, 12, vm->pc = vm->reg[y]);
+		OP(LEA, 14, CC(vm->reg[x] = vm->pc + lc3_sext(op, 9)));
+		OP(TRAP,15, (z == 0x20) ? vm->reg[0] = getchar() : (z == 0x21) ? (putchar(vm->reg[0]),fflush(stdout)) : (vm->pc = (z == 0x25 ? -1 : vm->pc)));
+	}
+#undef OP
+#undef CC
+	return -1;
+}
+
+
+static int lc3_vm_run(lc3vm * vm) PC_NOEXCEPT_C
+{
+    vm->running = 1;
+    while (vm->running)
+    {
+        if (lc3_vm_step(vm) != 0)
+            break;
+    }
+
+    return 0;
+}
+
 
 #ifdef __cplusplus
 }

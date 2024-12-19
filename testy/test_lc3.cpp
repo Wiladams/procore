@@ -75,7 +75,7 @@ void onVMLoop(lc3vm* vm)
 
 
 
-void test_lc3_core(bspan &fspan)
+static void test_lc3_core(bspan &fspan)
 {
     printf("==== test_lc3_core ====\n");
 
@@ -89,6 +89,22 @@ void test_lc3_core(bspan &fspan)
     lc3_vm_run(&vm);
 }
 
+static void test_lc3_compact(bspan &fspan)
+{
+    printf("==== test_lc3_compact ====\n");
+
+    lc3vm vm;
+    lc3_vm_init(&vm);
+    lc3_vm_set_checkkey(&vm, check_key);
+    //lc3_vm_set_loopHook(&vm, onVMLoop);
+
+    lc3_load_image_span(&vm, &fspan);
+
+	// execute
+    while (lc3_oneop(&vm) > 0)
+        ;
+
+}
 
 
 int main(int argc, char* argv[])
@@ -105,7 +121,9 @@ int main(int argc, char* argv[])
     auto mfile = MappedFile::create_shared(argv[1]);
     bspan fspan;
     bspan_init_from_data(&fspan, mfile->data(), mfile->size());
-    test_lc3_core(fspan);
+    
+    //test_lc3_core(fspan);
+    test_lc3_compact(fspan);
 
     restore_input_buffering();
 }
