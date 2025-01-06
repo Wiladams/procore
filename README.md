@@ -28,3 +28,8 @@ The C++ dependencies should be at the level of C++ 11, but some conveniences fro
     * Do not depend on anything outside these files<p>
 
 These are just design principles, rather than hard fast rules.  The general idea being, keep things as simple and independent as possible to make it more likely the routines can be used in different environments.<p>
+
+Interesting topic areas
+    automatic JIT compiler -
+    https://sillycross.github.io/2022/11/22/2022-11-22/
+    https://sillycross.github.io/2023/05/12/2023-05-12/

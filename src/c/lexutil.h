@@ -9,6 +9,8 @@
 extern "C" {
 #endif
 
+// Comparison functions
+static int bspan_compare_span(const bspan * a, const bspan * b) PC_NOEXCEPT_C;
 
 
 
@@ -32,7 +34,7 @@ static int lex_read_quoted(const bspan *src, bspan *dataChunk, bspan *rest) PC_N
 // Skip any characters if they are on the front of the span
 static int lex_skip_leading_charset(const bspan* a, const asciiset *skippable, bspan *b) PC_NOEXCEPT_C
 {
-    bspan_weak_assign(b, a);
+    bspan_init_copy(b, a);
     unsigned char *startAt = (unsigned char *)b->fStart;
     while (startAt < b->fEnd){
         if (asciiset_contains_char(skippable, *startAt))
@@ -51,7 +53,7 @@ static int lex_skip_trailing_charset(const bspan* a, const asciiset *skippable, 
     if (!bspan_is_valid(a))
         return -1;
 
-    bspan_weak_assign(b, a);
+    bspan_init_copy(b, a);
     const unsigned char *endAt = bspan_end(b);
 
     while (endAt > b->fStart){
@@ -96,8 +98,8 @@ static int lex_trim(bspan* a, const asciiset * skippable) PC_NOEXCEPT_C
 
 static int lex_skip_until_charset(const bspan* a, const asciiset *skippable, bspan *tok, bspan *rest) PC_NOEXCEPT_C
 {
-    bspan_weak_assign(tok, a);
-    bspan_weak_assign(rest, a);
+    bspan_init_copy(tok, a);
+    bspan_init_copy(rest, a);
 
     unsigned char *endAt = (unsigned char *)tok->fStart;
     while (endAt < tok->fEnd){
@@ -121,14 +123,14 @@ static int lex_skip_until_charset(const bspan* a, const asciiset *skippable, bsp
 
 static int lex_front_token(const bspan* a, const asciiset *skipleading, const asciiset *delim, bspan *tok, bspan *rest) PC_NOEXCEPT_C
 {
-    bspan_weak_assign(rest, a);
+    bspan_init_copy(rest, a);
     
     // skip any skippable front characters, typically whitespace
     lex_skip_leading_charset(rest, skipleading, rest);
 
     // start the token off matching the rest of the span
     // if there's no delimeters, then the token is the remainder
-    bspan_weak_assign(tok, rest);
+    bspan_init_copy(tok, rest);
 
     // Now figure out where the token delimeter is
     unsigned char *endAt = (unsigned char *)tok->fStart;
@@ -156,6 +158,38 @@ static int lex_front_token(const bspan* a, const asciiset *skipleading, const as
     return 0;
 }
 
+	// Byte Comparison operations
+	static int bspan_compare_span(const bspan * a, const bspan * b) PC_NOEXCEPT_C
+	{
+		const unsigned char *cs = bspan_begin(a);
+		const unsigned char *ct = bspan_begin(b);
+
+		ptrdiff_t maxN = bspan_size(a) < bspan_size(b) ? bspan_size(a) : bspan_size(b);
+
+		for (int i=0;i<maxN;i++,cs++,ct++)
+		{
+			if (*cs < *ct)
+				return -1;
+			if (*ct > *ct)
+				return 1;
+		}
+
+		// We've gotten through the loop
+		// so thus far, all bytes are the same
+		// we can further constrain by seeing if we've
+		// actually exhausted all available bytes in one span
+		// or the other.  The one that is short, is the lesser one
+		if (bspan_size(a) == bspan_size(b))
+			return 0;
+
+		// The 'a' span is shorter, so it is the 'lesser'
+		// of the two spans
+		if (bspan_size(a) < bspan_size(b))
+			return -1;
+
+		return 1;
+	}
+    
 // bspan_begins_with_bspan()
 // This is the first one with the cleanest semantics
 // It is a byte comparison, assuming the first operand is at 
@@ -261,7 +295,7 @@ static int lex_read_quoted(const bspan *src, bspan *dataChunk, bspan *rest) PC_N
     if (!bspan_is_valid(src))
         return -1;
 
-    bspan_weak_assign(rest, src);
+    bspan_init_copy(rest, src);
 
     // capture the quote character
     quote = bspan_front(rest);
@@ -329,6 +363,86 @@ static int lex_read_bracketed(bspan * src, const unsigned char lbracket, const u
 
     return 0;
 }
+
+	// readNextKeyValue()
+	// 
+	// Attributes are separated by '=' and values are quoted with 
+	// either "'" or '"'
+	// Ex: <tagname attr1='first value'  attr2="second value" />
+	// The src so it points past the end of the retrieved value
+	INLINE int lex_read_next_key_value(bspan * src, bspan * key, bspan * value) PC_NOEXCEPT_C
+	{
+		static charset equalChars("=");
+		static charset quoteChars("\"'");
+
+		bool start = false;
+		bool end = false;
+		unsigned char quote{};
+
+		unsigned char * beginattrValue = NULL;
+		unsigned char * endattrValue = NULL;
+
+
+		// Skip leading white space before the key name
+        lex_ltrim(src, wspcharset());
+
+		if (!bspan_is_valid(src))
+			return -1;
+
+		// Special case of running into an end tag
+		if (bspan_front(src) == '/') {
+			end = true;
+			return -1;
+		}
+
+		// Find end of the attrib name.
+		//auto attrNameChunk = chunk_token(src, equalChars);
+		auto attrNameChunk = chunk_token_char(src, '=');
+		lex_trim(attrNameChunk, chrWspChars);
+        bspan_init_copy(key, attrNameChunk);
+
+		// Skip stuff past '=' until we see one of our quoteChars
+		while (bspan_is_valid(src) && !quoteChars[bspan_front(src)])
+			bspan_advance(src,1);
+
+		// If we've run out of input, return false
+		if (!bspan_is_valid(src))
+			return -1;
+
+		// capture the quote character
+		quote = bspan_front(src);
+
+		// move past the beginning of the quote
+		// and mark the beginning of the value portion
+		bspan_advance(src,1);
+		beginattrValue = bspan_begin(src);
+
+		// Skip anything that is not the quote character
+		// to mark the end of the value
+		// don't use quoteChars here, because it's valid to 
+		// embed the other quote within the value
+		src = chunk_skip_until_char(src, quote);
+
+		// If we still have input, it means we found
+		// the quote character, so mark the end of the
+		// value
+		if (bspan_is_valid(src))
+		{
+			endattrValue = (uint8_t*)src.fStart;
+			bspan_advance(src,1);
+		}
+		else {
+			// We did not find the closing quote
+			// so we don't have a valid value
+			return -1;
+		}
+
+
+		// Store only well formed attributes
+        bspan_init_from_pointers(value, beginattrValue, endattrValue);
+
+		return 0;
+	}
 
 #ifdef __cplusplus
 }

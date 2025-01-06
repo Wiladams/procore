@@ -1,6 +1,7 @@
 	#pragma once
 
-    #include "bspan.h"
+#include "bspan.h"
+#include "lexutil.h"
 
 namespace pcore {
     struct ByteSpan

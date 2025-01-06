@@ -130,6 +130,12 @@
   <ItemGroup>
     <ClCompile Include="test_xmlscan.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\c\bspan.h" />
+    <ClInclude Include="..\..\src\c\lexutil.h" />
+    <ClInclude Include="..\..\src\c\xmlcore.h" />
+    <ClInclude Include="..\..\src\c\xmlscan.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

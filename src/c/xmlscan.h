@@ -8,6 +8,12 @@
 extern "C" {
 #endif
 
+enum {
+    XML_OK = 0
+    , XML_ERROR = 1
+    , XML_ERROR_EOF = 2
+    , XML_ERROR_SYNTAX = 3
+};
 
 //============================================================
 // readCData()
@@ -16,7 +22,8 @@ extern "C" {
 static int xml_scan_read_cdata(bspan *src, bspan * dataChunk) PC_NOEXCEPT_C
 {
         // Skip past the ![CDATA[
-        bspan_advance(src, 8);
+        if (bspan_advance(src, 8) != 0)
+            return XML_ERROR_EOF;
 
         bspan_init_from_pointers(dataChunk, bspan_begin(src), bspan_begin(src));
 
@@ -25,12 +32,12 @@ static int xml_scan_read_cdata(bspan *src, bspan * dataChunk) PC_NOEXCEPT_C
         lex_find_cstr(src, "]]>", &endCData);
         dataChunk->fEnd = endCData.fStart;
 
-        bspan_weak_assign(src, &endCData);
+        bspan_init_copy(src, &endCData);
 
         // skip past the closing ]]>.
         bspan_advance(src, 3);
 
-        return true;
+        return XML_OK;
 }
 
 //============================================================
@@ -39,9 +46,10 @@ static int xml_scan_read_cdata(bspan *src, bspan * dataChunk) PC_NOEXCEPT_C
 static int xml_scan_read_comment(bspan * src, bspan *dataChunk) PC_NOEXCEPT_C
 {
 	// Skip past the !--
-    bspan_advance(src, 3);
+    if (bspan_advance(src, 3) != 0)
+        return XML_ERROR_EOF;
 
-    bspan_weak_assign(dataChunk, src);
+    bspan_init_copy(dataChunk, src);
 
 	dataChunk->fEnd = src->fStart;
 
@@ -53,12 +61,12 @@ static int xml_scan_read_comment(bspan * src, bspan *dataChunk) PC_NOEXCEPT_C
 	dataChunk->fEnd = endComment.fStart;
 
     src->fStart = endComment.fEnd++;
-    //bspan_weak_assign(src, &endComment);
+    //bspan_init_copy(src, &endComment);
 
 	// skip past the end of the comment  '-->'
     bspan_advance(src, 3);
 
-	return 0;
+	return XML_OK;
 }
     
     //============================================================
@@ -69,10 +77,14 @@ static int xml_scan_read_comment(bspan * src, bspan *dataChunk) PC_NOEXCEPT_C
 	//============================================================
 static int xml_scan_read_entity_declaration(bspan *src, bspan *dataChunk) PC_NOEXCEPT_C
 {
-    // Skip past the !ENTITY
-    bspan_advance(src, 7);
+    if (dataChunk == NULL)
+        return XML_ERROR;
 
-    dataChunk = src;
+    // Skip past the !ENTITY
+    if (bspan_advance(src, 7)!=0)
+        return XML_ERROR_EOF;
+
+    bspan_init_copy(dataChunk, src);
 
 	// skip until we see the closing '>' character
 	lex_find_char(src, '>', src);
@@ -82,7 +94,7 @@ static int xml_scan_read_entity_declaration(bspan *src, bspan *dataChunk) PC_NOE
     // skip past that character and return
 	bspan_advance(src, 1);
 
-    return 0;
+    return XML_OK;
 }
     
 //============================================================
@@ -95,8 +107,8 @@ static int xml_scan_read_entity_declaration(bspan *src, bspan *dataChunk) PC_NOE
 static int xml_scan_read_doctype(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
 {
         // skip past the !DOCTYPE to the first whitespace character
-        src += 8;
-
+        if (bspan_advance(src, 8) != 0)
+            return XML_ERROR_EOF;
 
         // Skip past the whitespace
         // to get to the beginning of things
@@ -124,7 +136,7 @@ static int xml_scan_read_doctype(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
 			// Skip past the closing ']>'
 			src->fStart = endDTD.fStart + 2;
 
-            return 0;
+            return XML_OK;
 		}
         
         // If we've gotten here, we have an 'external' DTD
@@ -155,7 +167,7 @@ static int xml_scan_read_doctype(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
                 bspan_advance(src, 1);
                 bspan_init_from_pointers(dataChunk, src->fStart, src->fStart);
                 
-				return true;
+				return XML_OK;
 			}
 
 			// If we have an opening '[', then we have more to parse
@@ -174,7 +186,7 @@ static int xml_scan_read_doctype(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
 				// Skip past the closing ']>'
 				src->fStart = endDTD.fStart + 2;
 				
-                return 0;
+                return XML_OK;
 			}
 		}
 		else if (lex_begins_with_cstr(src, "SYSTEM"))
@@ -194,7 +206,7 @@ static int xml_scan_read_doctype(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
 			{
                 bspan_advance(src, 1);
 
-				return true;
+				return XML_OK;
 			}
 
 			// If we have an opening '[', then we have more to parse
@@ -211,12 +223,12 @@ static int xml_scan_read_doctype(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
 				// Skip past the closing ']>'
 				src->fStart = endDTD.fStart + 2;
 				
-                return 0;
+                return XML_OK;
 			}
 		}
 
 	// We have an invalid DTD
-	return -1;
+	return XML_ERROR;
 }
     
 //============================================================
@@ -234,9 +246,9 @@ static int xml_scan_read_tag(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
 		srcPtr++;
         
 	// if we get to the end of the input, before seeing the closing '>'
-    // the we return false, indicating we did not read
+    // the we return error, indicating we did not read
     if (srcPtr == endPtr)
-		return false;
+		return XML_ERROR_EOF;
         
     // we did see the closing, so capture the name into 
     // the data chunk, and trim whitespace off the end.
@@ -248,7 +260,7 @@ static int xml_scan_read_tag(bspan * src, bspan * dataChunk) PC_NOEXCEPT_C
     bspan_set_begin(src, srcPtr);
 
 
-    return 0;
+    return XML_OK;
 }
 
 
@@ -291,16 +303,16 @@ static int xml_iter_state_init(xmliteratorstate *s) PC_NOEXCEPT_C
     bspan_init(&s->fSource);
     bspan_init(&s->fMark);
 
-    return 0;
+    return XML_OK;
 }
 
 static int xml_iter_state_init_from_source(xmliteratorstate *s, bspan *src) PC_NOEXCEPT_C
 {
     xml_iter_state_init(s);
-    bspan_weak_assign(&s->fSource, src);
-    bspan_weak_assign(&s->fMark, src);
+    bspan_init_copy(&s->fSource, src);
+    bspan_init_copy(&s->fMark, src);
 
-    return 0;
+    return XML_OK;
 }
 
 static int xml_iter_is_valid(xmliteratorstate *s)
@@ -316,7 +328,7 @@ static int xml_iter_params_init(xmliterparams *p) PC_NOEXCEPT_C
     p->fSkipCData = false;
     p->fAutoScanAttributes = false;
 
-    return 0;
+    return XML_OK;
 }
 
 // XmlElementGenerator
@@ -353,15 +365,15 @@ static int xml_iter_next_element(const xmliterparams * params, xmliteratorstate 
                         {
                             // Set the state for next iteration
                             bspan_advance(&st->fSource,1);
-                            bspan_weak_assign(&st->fMark, &st->fSource);
+                            bspan_init_copy(&st->fMark, &st->fSource);
                             xml_element_init_from_data(elem, XML_ELEMENT_TYPE_CONTENT, &content);
 
-                            return 0;
+                            return XML_OK;
                         }
                     }
 
                     bspan_advance(&st->fSource,1);
-                    bspan_weak_assign(&st->fMark, &st->fSource);
+                    bspan_init_copy(&st->fMark, &st->fSource);
                 }
                 else {
                     bspan_advance(&st->fSource, 1);
@@ -413,17 +425,18 @@ static int xml_iter_next_element(const xmliterparams * params, xmliteratorstate 
                 }
                 else {
                     xml_scan_read_tag(&st->fSource, &elementChunk);
+                    lex_rtrim(&elementChunk, wspcharset());
                     if (bspan_back(&elementChunk) == '/')
                         kind = XML_ELEMENT_TYPE_SELF_CLOSING;
                 }
 
                 st->fState = XML_ITERATOR_STATE_CONTENT;
                 
-                bspan_weak_assign(&st->fMark, &st->fSource);
+                bspan_init_copy(&st->fMark, &st->fSource);
 
                 xml_element_init_from_data(elem, kind, &elementChunk);
 
-                return 0;
+                return XML_OK;
             }
             break;
 
@@ -435,73 +448,14 @@ static int xml_iter_next_element(const xmliterparams * params, xmliteratorstate 
         }
     }
         
-    return -1;
+    return XML_ERROR;
 }
     
 #ifdef __cplusplus
 }
 #endif
 
-/*
-namespace pcore {
-    // XmlElementIterator
-    // scans XML generating a sequence of XmlElements
-    // This is a forward only non-writeable iterator
-    // 
-    // Usage:
-    //   XmlElementIterator iter(xmlChunk, false);
-    // 
-    //   while(iter.next())
-    //   {
-    //     printXmlElement(*iter);
-    //   }
-    //
-    //.  or, you can do it this way
-    //.  
-    //.  iter++;
-    //.  while (iter) {
-    //.    printXmlElement(*iter);
-    //.    iter++;
-    //.  }
-    //
-    struct XmlElementIterator {
-    private:
-        xmliterparams fParams{};
-        xmliteratorstate fState{};
-        xmlelement fCurrentElement{};
 
-    public:
-		XmlElementIterator(const bspan& inChunk, bool autoScanAttributes = false)
-            : fState{ XML_ITERATOR_STATE_CONTENT, inChunk, inChunk }
-        {
-			fParams.fAutoScanAttributes = autoScanAttributes;
-            // We do not advance in the constructor, leaving that
-            // for the user to call 'next()' to get the first element
-            //next();
-        }
-
-		// return 'true' if the node we're currently sitting on is valid
-        // return 'false' if otherwise
-        explicit operator bool() { return xml_element_is_valid(&fCurrentElement); }
-
-        // These operators make it operate like an iterator
-        const xmlelement& operator*() const { return fCurrentElement; }
-        const xmlelement* operator->() const { return &fCurrentElement; }
-
-        // Increment the iterator either pre, or post notation
-        XmlElementIterator& operator++() { next(); return *this; }
-        XmlElementIterator& operator++(int) { next(); return *this; }
-
-        // Return the current value of the iteration
-        const xmlelement & next() 
-        {
-            xml_iter_next_element(&fParams, &fState, &fCurrentElement);
-
-            return fCurrentElement;
-        }
-    };
-}   // namespace pcore
-*/
 
 
 #endif  // XMLSCAN_H_INCLUDED

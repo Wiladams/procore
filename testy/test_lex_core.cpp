@@ -5,6 +5,26 @@
 #include "bspanprint.h"
 
 
+void test_compare()
+{
+    bspan span1;
+    bspan_init_from_cstr(&span1,"Beginning Middle End");
+
+    bspan str1;
+    bspan_init_from_cstr(&str1, "Beginning");
+    bspan str2;
+    bspan_init_from_cstr(&str2, "Beginning");
+
+    int res1 = bspan_compare_span(&span1, &str1);
+    int res2 = bspan_compare_span(&str1, &str2);
+    int res3 = bspan_compare_span(&str1, &span1);
+
+    printf("== Span Compare ==\n");
+    printf("span1, str1: %d\n", res1);
+    printf("str1, str2: %d\n", res2);
+    printf("str1, span1: %d\n", res3);
+
+}
 
 void test_front_token()
 {

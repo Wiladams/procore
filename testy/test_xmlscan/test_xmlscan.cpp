@@ -25,7 +25,7 @@ void test_scan_next()
 {
     printf("==== test_scan_next() ====\n");
     bspan xmlsrc;
-    bspan_init_from_cstr(&xmlsrc, "<svg att1='1' att2='2' >This is some XML</svg>");
+    bspan_init_from_cstr(&xmlsrc, "<svg version='1.1' xmlns='http://www.w3.org/2000/svg'><rect width='64' height='64'/></svg>");
 
     xmliterparams fParams{};
     xmliteratorstate fState{};

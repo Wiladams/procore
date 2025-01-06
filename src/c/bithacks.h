@@ -10,6 +10,19 @@ extern "C" {
 static INLINE bool bhak_isLE() PC_NOEXCEPT_C { int i = 1; return (int)*((unsigned char*)&i) == 1; }
 static INLINE bool bhak_isBE() PC_NOEXCEPT_C { return !bhak_isLE(); }
 
+
+// Express all logical operators using only AND and NOT
+#define _NOT(a)         (~a)
+#define _AND(a, b)      (a & b)
+#define _OR(a, b)       (_NOT(_AND(_NOT(a), _NOT(b))))
+#define _XOR(a, b)      (_OR(_AND(a, _NOT(b)), _AND(_NOT(a), b)))
+#define _NAND(a, b)     (_NOT(_AND(a, b)))
+#define _NOR(a, b)      (_NOT(_OR(a, b)))
+#define _IMPLY(a, b)    (_NOT(_AND(a, _NOT(b))))
+#define _EQUIV(a, b)    (_NOT(_XOR(a, b)))
+
+
+// Return the bit at the specified position
 static uint8_t BIT8(size_t bitnum) PC_NOEXCEPT_C {return (uint8_t)1 << bitnum; }
 static uint16_t BIT16(size_t bitnum) PC_NOEXCEPT_C {return (uint16_t)1 << bitnum; }
 static uint32_t BIT32(size_t bitnum) PC_NOEXCEPT_C {return (uint32_t)1 << bitnum; }

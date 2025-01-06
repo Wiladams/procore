@@ -16,7 +16,7 @@ enum XML_ELEMENT_TYPE {
     , XML_ELEMENT_TYPE_START_TAG                    // <tag>
 	, XML_ELEMENT_TYPE_END_TAG                      // </tag>
 	, XML_ELEMENT_TYPE_SELF_CLOSING                 // <tag/>
-	, XML_ELEMENT_TYPE_EMPTY_TAG                    // <br>
+	//, XML_ELEMENT_TYPE_EMPTY_TAG                    // <br>
 	, XML_ELEMENT_TYPE_CONTENT                      // <tag>content</tag>
 	, XML_ELEMENT_TYPE_COMMENT                      // <!-- comment -->
 	, XML_ELEMENT_TYPE_PROCESSING_INSTRUCTION       // <?target data?>
@@ -35,11 +35,18 @@ struct xmlname_t {
 };
 typedef struct xmlname_t xmlname;
 
-static int xml_name_init(xmlname *a) PC_NOEXCEPT_C;
-static int xml_name_reset(xmlname *a, const bspan * inChunk) PC_NOEXCEPT_C;
-static int xml_name_weak_assign(xmlname *a, const xmlname *b) PC_NOEXCEPT_C;
-static int xml_name_name(const xmlname *a, bspan *name) PC_NOEXCEPT_C;
-static int xml_name_namespace(const xmlname *a, bspan *nspace) PC_NOEXCEPT_C;
+static INLINE int xml_name_init(xmlname *a) PC_NOEXCEPT_C;
+static INLINE int xml_name_reset(xmlname *a, const bspan * inChunk) PC_NOEXCEPT_C;
+static INLINE int xml_name_weak_assign(xmlname *a, const xmlname *b) PC_NOEXCEPT_C;
+static INLINE int xml_name_name(const xmlname *a, bspan *name) PC_NOEXCEPT_C;
+static INLINE int xml_name_namespace(const xmlname *a, bspan *nspace) PC_NOEXCEPT_C;
+static INLINE int xml_name_equals(const xmlname* a, const char* nspace, const char* name) PC_NOEXCEPT_C;
+
+
+
+
+
+
 
 struct xmlelement_t
 {
@@ -50,17 +57,17 @@ struct xmlelement_t
 };
 typedef struct xmlelement_t xmlelement;
 
-static int xml_element_init(xmlelement *e) PC_NOEXCEPT_C;
-static int xml_element_init_from_element(xmlelement *a, const xmlelement *b) PC_NOEXCEPT_C;
+static INLINE int xml_element_init(xmlelement *e) PC_NOEXCEPT_C;
+static INLINE int xml_element_iniit_copy(xmlelement *a, const xmlelement *b) PC_NOEXCEPT_C;
 
-static int xml_element_is_valid(const xmlelement *e) PC_NOEXCEPT_C;
-static int xml_element_scanNameSpan(xmlelement *e) PC_NOEXCEPT_C;
+static INLINE int xml_element_is_valid(const xmlelement *e) PC_NOEXCEPT_C;
+static INLINE int xml_element_scanNameSpan(xmlelement *e) PC_NOEXCEPT_C;
 
-static int xml_element_is_kind(const xmlelement *e, int kind) PC_NOEXCEPT_C;
-static int xml_element_get_kind(const xmlelement *e) PC_NOEXCEPT_C;
-static int xml_element_set_kind(xmlelement *e, int kind) PC_NOEXCEPT_C;
+static INLINE int xml_element_is_kind(const xmlelement *e, int kind) PC_NOEXCEPT_C;
+static INLINE int xml_element_get_kind(const xmlelement *e) PC_NOEXCEPT_C;
+static INLINE int xml_element_set_kind(xmlelement *e, int kind) PC_NOEXCEPT_C;
 
-static int xml_element_get_data(const xmlelement *e, bspan *d) PC_NOEXCEPT_C;
+static INLINE int xml_element_get_data(const xmlelement *e, bspan *d) PC_NOEXCEPT_C;
 
 
 
@@ -68,7 +75,7 @@ static int xml_element_get_data(const xmlelement *e, bspan *d) PC_NOEXCEPT_C;
 //
 // IMPLEMENTATION
 //
-static asciiset * xmlwspchars() PC_NOEXCEPT_C
+static INLINE asciiset * xmlwspchars() PC_NOEXCEPT_C
 {
     static asciiset chars;
     static bool initialized=false;
@@ -81,7 +88,7 @@ static asciiset * xmlwspchars() PC_NOEXCEPT_C
     return &chars;
 }
 
-static asciiset * xmlcolonchar() PC_NOEXCEPT_C
+static INLINE asciiset * xmlcolonchar() PC_NOEXCEPT_C
 {
     static asciiset chars;
     static bool initialized=false;
@@ -96,7 +103,7 @@ static asciiset * xmlcolonchar() PC_NOEXCEPT_C
 
 // xmlname
 //
-static int xml_name_init(xmlname *a) PC_NOEXCEPT_C
+static INLINE int xml_name_init(xmlname *a) PC_NOEXCEPT_C
 {
     bspan_init(&a->fName);
     bspan_init(&a->fNamespace);
@@ -104,46 +111,54 @@ static int xml_name_init(xmlname *a) PC_NOEXCEPT_C
     return 0;
 }
 
-static int xml_name_reset(xmlname *a, const bspan * inChunk) PC_NOEXCEPT_C
+static INLINE int xml_name_reset(xmlname *a, const bspan * inChunk) PC_NOEXCEPT_C
 {
     lex_front_token(inChunk, xmlwspchars(), xmlcolonchar(), &a->fNamespace, &a->fName);
 
     if (!bspan_is_valid(&a->fName))
     {
-        bspan_weak_assign(&a->fName, &a->fNamespace);
+        bspan_init_copy(&a->fName, &a->fNamespace);
         bspan_reset(&a->fNamespace);
     }
 
     return 0;
 }
 
-static int xml_name_weak_assign(xmlname *a, const xmlname *b) PC_NOEXCEPT_C
+static INLINE int xml_name_weak_assign(xmlname *a, const xmlname *b) PC_NOEXCEPT_C
 {
-    bspan_weak_assign(&a->fName, &b->fName);
-    bspan_weak_assign(&a->fNamespace, &b->fNamespace);
+    bspan_init_copy(&a->fName, &b->fName);
+    bspan_init_copy(&a->fNamespace, &b->fNamespace);
 
     return 0;
 }
 
-static int xml_name_name(const xmlname *a, bspan *name) PC_NOEXCEPT_C
+static INLINE int xml_name_name(const xmlname *a, bspan *name) PC_NOEXCEPT_C
 {
-    bspan_weak_assign(name, &a->fName);
+    bspan_init_copy(name, &a->fName);
     return 0;
 }
 
-static int xml_name_namespace(const xmlname *a, bspan *nspace) PC_NOEXCEPT_C
+static INLINE int xml_name_namespace(const xmlname *a, bspan *nspace) PC_NOEXCEPT_C
 {
-    bspan_weak_assign(nspace, &a->fNamespace);
+    bspan_init_copy(nspace, &a->fNamespace);
     return 0;
 }
 
+// name comparison
+static INLINE int xml_name_equals(const xmlname* a, const char* nspace, const char* name) PC_NOEXCEPT_C
+{
+
+}
 
 
 
 // Representation of an xml element
 // The xml scanner will generate these
-static int xml_element_init(xmlelement *e) PC_NOEXCEPT_C
+static INLINE int xml_element_init(xmlelement *e) PC_NOEXCEPT_C
 {
+    if (NULL == e)
+        return -1;
+    
     e->fElementKind = XML_ELEMENT_TYPE_INVALID;
     bspan_init(&e->fData);
     bspan_init(&e->fNameSpan);
@@ -153,20 +168,26 @@ static int xml_element_init(xmlelement *e) PC_NOEXCEPT_C
 }
 
 // A copy constructor, or assignment operator
-int xml_element_init_from_element(xmlelement *a, const xmlelement *b) PC_NOEXCEPT_C
+static INLINE int xml_element_init_copy(xmlelement *a, const xmlelement *b) PC_NOEXCEPT_C
 {
+    if ((NULL == a) || (NULL == b))
+        return -1;
+    
     a->fElementKind = b->fElementKind;
-    bspan_weak_assign(&a->fNameSpan, &b->fNameSpan);
-    bspan_weak_assign(&a->fData, &b->fData);
+    bspan_init_copy(&a->fNameSpan, &b->fNameSpan);
+    bspan_init_copy(&a->fData, &b->fData);
     xml_name_weak_assign(&a->fXmlName, &b->fXmlName);
 }
 
-static int xml_element_init_from_data(xmlelement *e, int kind, const bspan * data) PC_NOEXCEPT_C
+static INLINE int xml_element_init_from_data(xmlelement *e, int kind, const bspan * data) PC_NOEXCEPT_C
 {
+    if (NULL == e)
+        return -1;
+    
     xml_element_init(e);
 
     e->fElementKind = kind;
-    bspan_weak_assign(&e->fData, data);
+    bspan_init_copy(&e->fData, data);
 
 
     if ((kind == XML_ELEMENT_TYPE_START_TAG) ||
@@ -179,9 +200,9 @@ static int xml_element_init_from_data(xmlelement *e, int kind, const bspan * dat
     return 0;
 }
 
-static int xml_element_is_valid(const xmlelement *e) PC_NOEXCEPT_C
+static INLINE int xml_element_is_valid(const xmlelement *e) PC_NOEXCEPT_C
 {
-    if ((nullptr == e) || (e->fElementKind == XML_ELEMENT_TYPE_INVALID))
+    if ((NULL == e) || (e->fElementKind == XML_ELEMENT_TYPE_INVALID))
         return 0;
 
     return 1;
@@ -189,8 +210,11 @@ static int xml_element_is_valid(const xmlelement *e) PC_NOEXCEPT_C
 
 static int xml_element_scanNameSpan(xmlelement *e) PC_NOEXCEPT_C
 {
+    if (NULL == e)
+        return -1;
+    
     bspan s;
-    bspan_weak_assign(&s, &e->fData);
+    bspan_init_copy(&s, &e->fData);
 
     bool start = false;
     bool end = false;
@@ -210,7 +234,7 @@ static int xml_element_scanNameSpan(xmlelement *e) PC_NOEXCEPT_C
     }
 
     // Get tag name
-    //bspan_weak_assign(&e->fNameSpan, &s);
+    //bspan_init_copy(&e->fNameSpan, &s);
     //e->fNameSpan.fEnd = s.fStart;
 
     lex_skip_until_charset(&s, xmlwspchars(), &e->fNameSpan, &s);
@@ -218,7 +242,7 @@ static int xml_element_scanNameSpan(xmlelement *e) PC_NOEXCEPT_C
 
     // Modify the data chunk to point to the next attribute
     // part of the element
-    bspan_weak_assign(&e->fData, &s);
+    bspan_init_copy(&e->fData, &s);
 
     return 0;
 }
@@ -240,29 +264,29 @@ static int xml_element_scanNameSpan(xmlelement *e) PC_NOEXCEPT_C
         //ByteSpan name() const { return fXmlName.name(); }
 
 // Convenience for what kind of tag it is
-static int xml_element_is_kind(const xmlelement *e, int kind) PC_NOEXCEPT_C {return e->fElementKind == kind ?1:0;}
-static int xml_element_get_kind(const xmlelement *e) PC_NOEXCEPT_C { return e->fElementKind; }
-static int xml_element_set_kind(xmlelement *e, int kind) PC_NOEXCEPT_C { e->fElementKind = kind;}
+static INLINE int xml_element_is_kind(const xmlelement* e, int kind) PC_NOEXCEPT_C { if (NULL == e) return 0;  return e->fElementKind == kind ? 1 : 0; }
+static INLINE int xml_element_get_kind(const xmlelement *e) PC_NOEXCEPT_C { return e->fElementKind; }
+static INLINE int xml_element_set_kind(xmlelement *e, int kind) PC_NOEXCEPT_C { e->fElementKind = kind;}
 
-static int xml_element_get_data(const xmlelement *e, bspan *d) PC_NOEXCEPT_C {
-    if (!xml_element_is_valid(e))
+static INLINE int xml_element_get_data(const xmlelement *e, bspan *d) PC_NOEXCEPT_C {
+	if (!xml_element_is_valid(e) || (NULL == d))
         return -1;
 
-    bspan_weak_assign(d, &e->fData);
+    bspan_init_copy(d, &e->fData);
 }
 
 
 		
-bool xml_element_isXmlDecl(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_XMLDECL); }
-bool xml_element_isStart(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_START_TAG); }
-bool xml_element_isSelfClosing(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_SELF_CLOSING); }
-bool xml_element_isEnd(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_END_TAG); }
-bool xml_element_isComment(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_COMMENT); }
-bool xml_element_isProcessingInstruction(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_PROCESSING_INSTRUCTION); }
-bool xml_element_isContent(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_CONTENT); }
-bool xml_element_isCData(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_CDATA); }
-bool xml_element_isDoctype(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_DOCTYPE); }
-bool xml_element_isEntityDeclaration(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_ENTITY); }
+static INLINE bool xml_element_isXmlDecl(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_XMLDECL); }
+static INLINE bool xml_element_isStart(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_START_TAG); }
+static INLINE bool xml_element_isSelfClosing(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_SELF_CLOSING); }
+static INLINE bool xml_element_isEnd(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_END_TAG); }
+static INLINE bool xml_element_isComment(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_COMMENT); }
+static INLINE bool xml_element_isProcessingInstruction(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_PROCESSING_INSTRUCTION); }
+static INLINE bool xml_element_isContent(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_CONTENT); }
+static INLINE bool xml_element_isCData(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_CDATA); }
+static INLINE bool xml_element_isDoctype(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_DOCTYPE); }
+static INLINE bool xml_element_isEntityDeclaration(const xmlelement *e) PC_NOEXCEPT_C { return xml_element_is_kind(e, XML_ELEMENT_TYPE_ENTITY); }
 
 
 
